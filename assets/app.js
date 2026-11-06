@@ -565,6 +565,8 @@
   }
 
   /* ---------- Roteador ---------- */
+  const LANDING_ANCHORS = ['inicio', 'visao', 'como-funciona', 'telas', 'saiba-mais'];
+
   function setNav(key) {
     $$('#mainnav a').forEach(a => {
       const on = a.dataset.nav === key;
@@ -575,15 +577,15 @@
         nav.scrollLeft = a.offsetLeft - nav.offsetLeft - (nav.clientWidth - a.offsetWidth) / 2;
       } else a.removeAttribute('aria-current');
     });
-    $('#topcta').hidden = !A.ativo;
-    $('.brand').href = '#' + ui.lastProfile;
+    if (A.ativo) { const cta = $('#topcta'); cta.textContent = 'Conta'; cta.href = '#conta'; }
     $('#mainnav a[data-nav="lancamentos"]').href = '#' + ui.lastLanc;
     $('#mainnav a[data-nav="dashboards"]').href = '#' + ui.lastProfile;
   }
 
   function route(scroll) {
     C.hideTip();
-    const h = location.hash.slice(1);
+    const h = (location.hash || '#inicio').slice(1);
+    const landing = $('#landing'), app = $('#app');
 
     /* Sem login concluído, nenhuma tela abre: só a entrada, seja qual for o endereço. */
     const bloqueado = A.ativo && A.estado !== 'pronto';
@@ -591,6 +593,8 @@
     if (bloqueado) {
       if (ROUTES[h]) A.guardarDestino(h);
       document.title = 'Controle Financeiro Integrado';
+      landing.hidden = true;
+      app.hidden = false;
       $('.profilenav').hidden = true;
       renderPortao();
       if (scroll) window.scrollTo(0, 0);
@@ -598,7 +602,24 @@
     }
 
     const r = ROUTES[h];
-    if (!r || (r.conta && !A.ativo)) { location.replace('#' + ui.lastProfile); return; }
+    if (r && r.conta && !A.ativo) { location.replace('#inicio'); return; }
+
+    if (!r) {
+      const anchor = LANDING_ANCHORS.includes(h) ? h : 'inicio';
+      app.hidden = true;
+      landing.hidden = false;
+      document.title = 'Controle Financeiro Integrado';
+      setNav(anchor === 'saiba-mais' ? 'saiba' : 'inicio');
+      window.dispatchEvent(new Event('cfi:landing'));
+      if (scroll !== false) {
+        if (anchor === 'inicio') window.scrollTo(0, 0);
+        else { const el = document.getElementById(anchor); if (el) el.scrollIntoView(); }
+      }
+      return;
+    }
+
+    landing.hidden = true;
+    app.hidden = false;
     document.title = r.title + ' · Controle Financeiro Integrado';
 
     if (r.dash || r.emp) ui.lastProfile = h;
@@ -732,7 +753,7 @@
   /* Mudança de sessão: ao concluir o login, segue para a tela que a pessoa pediu. */
   window.addEventListener('cfi:auth', () => {
     if (A.estado === 'pronto') { const d = A.pegarDestino(); if (d && '#' + d !== location.hash) { location.hash = d; return; } }
-    if (A.estado === 'anonimo') ui.drafts = {};
+    if (A.estado === 'anonimo') { ui.drafts = {}; window.dispatchEvent(new Event('cfi:landing')); }
     route();
   });
   window.addEventListener('cfi:aviso', e => toast(e.detail));
