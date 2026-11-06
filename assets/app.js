@@ -530,7 +530,8 @@
       </section>`;
     } else {
       v.innerHTML = `<section class="card gate">${MARCA}<h1>Algo não saiu como esperado</h1>${erro}
-        <div class="gate-actions">${A.usuario ? '<button class="btn btn-ink btn-sm" data-tentar>Tentar de novo</button>' : ''}</div></section>`;
+        <div class="gate-actions">${A.usuario ? '<button class="btn btn-ink btn-sm" data-tentar>Tentar de novo</button>' : ''}</div>
+        ${A.usuario ? '<button class="linkbtn" data-sair>Sair e usar outra conta</button>' : ''}</section>`;
     }
   }
 
@@ -711,7 +712,7 @@
     const b = e.target.closest('button');
     if (!b) return;
     if (b.dataset.login) { b.disabled = true; A.entrar(b.dataset.login); return; }
-    if ('sair' in b.dataset) { A.sair(); return; }
+    if ('sair' in b.dataset) { history.replaceState(null, '', location.pathname); A.sair(); return; }
     if ('tentar' in b.dataset) { A.tentarDeNovo(); return; }
     if ('copiar' in b.dataset) {
       const code = $('#codigo-convite').textContent;

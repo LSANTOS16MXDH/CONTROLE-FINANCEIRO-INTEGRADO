@@ -162,7 +162,20 @@
     });
     if (error) definir('anonimo', 'Não foi possível abrir o login. Tente de novo em instantes.');
   };
-  A.sair = async () => { await db.auth.signOut(); };
+  /* Sair nunca depende do servidor: a tela muda na hora e, se o Supabase falhar ou
+     não responder, a sessão guardada neste aparelho é apagada mesmo assim. */
+  A.sair = async () => {
+    encerrar();
+    definir('anonimo');
+    let saiu = false;
+    try {
+      const espera = new Promise(ok => setTimeout(ok, 3000, { error: true }));
+      saiu = !(await Promise.race([db.auth.signOut({ scope: 'local' }), espera])).error;
+    } catch (e) { /* trata abaixo */ }
+    if (saiu) return;
+    try { localStorage.removeItem(db.auth.storageKey); } catch (e) { /* recarrega mesmo assim */ }
+    location.reload();
+  };
   A.tentarDeNovo = () => { if (A.usuario) carregarEspaco(); };
 
   const chamar = async (fn, args) => {
