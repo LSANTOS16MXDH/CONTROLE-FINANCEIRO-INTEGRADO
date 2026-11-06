@@ -99,7 +99,6 @@
     if (!inVals.includes(ui.catIn[p])) ui.catIn[p] = inVals[0];
     if (!catsOut.includes(ui.catOut[p])) ui.catOut[p] = catsOut[0];
 
-    const pctSaldo = t.rec > 0 ? Math.round(Math.max(0, t.saldo) / t.rec * 100) : 0;
 
     $('#view').innerHTML = `
       ${pageHead(titulo, modeToggle() + yearSelect())}
@@ -109,7 +108,7 @@
           <div class="panel-h"><h2>Análise do mês${casal ? ' (casal)' : ''}</h2>${monthSelect()}</div>
           <div class="donut-wrap" id="ch-donut"></div>
           <div class="donut-legend">
-            <span><i style="background:#10B981"></i>Saldo ${pctSaldo}%</span>
+            <span><i style="background:#10B981"></i>Resultado do mês ${brl(t.saldo)}</span>
             <span><i style="background:#F2643D"></i>Gastos ${t.rec > 0 ? Math.min(100, Math.round(t.gas / t.rec * 100)) : 0}%</span>
           </div>
           <div class="kpi-duo">
@@ -151,12 +150,12 @@
 
     C.donut($('#ch-donut'), {
       size: 184, stroke: 15,
-      aria: `Saldo de ${brl(t.saldo)}: ${brl(t.gas)} gastos de ${brl(t.rec)} recebidos`,
+      aria: `Saldo em caixa hoje de ${brl2(F.saldoCaixa(p))}. No mês, ${brl(t.gas)} gastos de ${brl(t.rec)} recebidos`,
       segs: [
         { nome: 'Saldo', val: Math.max(0, t.saldo), grad: ['#2BE0A8', '#0E9F8E'] },
         { nome: 'Gastos', val: t.gas, grad: ['#FFB23E', '#F2643D'] }
       ],
-      center: `<small>${casal ? 'Saldo casal' : 'Saldo líquido'}</small><strong>${brl(t.saldo)}</strong>`
+      center: `<small>${casal ? 'Caixa do casal hoje' : 'Saldo em caixa hoje'}</small><strong>${brl2(F.saldoCaixa(p))}</strong>`
     });
     C.annual($('#ch-annual'), {
       labels: MES, long: MES_LONGO.map(x => `${x} de ${y}`),
@@ -328,8 +327,8 @@
     return `<div class="summary">
       <div><span>Entradas brutas</span><strong><i class="dot dot-emerald"></i>${brl2(t.rec)}</strong></div>
       <div><span>Saídas totais</span><strong><i class="dot dot-coral"></i>${brl2(t.gas)}</strong></div>
-      <div><span>Total líquido</span><strong><i class="dot dot-cyan"></i>${brl2(t.saldo)}</strong></div>
-      ${PROFILES[p].conta ? `<div><span>Saldo hoje (${esc(PROFILES[p].conta)})</span><strong>${brl2(F.saldoConta())}</strong></div>` : ''}
+      <div><span>Resultado do mês</span><strong><i class="dot dot-cyan"></i>${brl2(t.saldo)}</strong></div>
+      <div><span>Saldo em caixa hoje${PROFILES[p].conta ? ` (${esc(PROFILES[p].conta)})` : ''}</span><strong>${brl2(F.saldoCaixa(p))}</strong></div>
     </div>`;
   }
 
@@ -470,14 +469,14 @@
     $('#view').innerHTML = `
       ${pageHead('Relatórios', (p === 'empresa' ? '' : modeToggle()) + yearSelect() + select('sel-rel', 'Perfil', nomes, p))}
       <section class="card panel">
-        <div class="panel-h"><h2>Resultado mês a mês</h2></div>
+        <div class="panel-h"><h2>Resultado mês a mês</h2>${p === 'empresa' ? '' : `<span class="panel-note">Saldo em caixa hoje: ${brl2(F.saldoCaixa(p))}</span>`}</div>
         <div class="kpi-trio">
           <div class="kpi"><span>Recebido no período</span><strong>${brl(sum('rec'))}</strong><i class="kpi-mark up"></i></div>
           <div class="kpi"><span>Gasto no período</span><strong>${brl(sum('gas'))}</strong><i class="kpi-mark down"></i></div>
-          <div class="kpi"><span>Saldo do período</span><strong>${brl(sum('saldo'))}</strong><i class="kpi-mark info"></i></div>
+          <div class="kpi"><span>Resultado do período</span><strong>${brl(sum('saldo'))}</strong><i class="kpi-mark info"></i></div>
         </div>
         <div class="tablewrap" tabindex="0" role="region" aria-label="Resultado mês a mês"><table class="tbl-compact">
-          <thead><tr><th scope="col"><span class="thtxt">Mês</span></th><th scope="col" class="num"><span class="thtxt">Recebido</span></th><th scope="col" class="num"><span class="thtxt">Gasto</span></th><th scope="col" class="num"><span class="thtxt">Saldo</span></th><th scope="col" class="num"><span class="thtxt">% gasto</span></th></tr></thead>
+          <thead><tr><th scope="col"><span class="thtxt">Mês</span></th><th scope="col" class="num"><span class="thtxt">Recebido</span></th><th scope="col" class="num"><span class="thtxt">Gasto</span></th><th scope="col" class="num"><span class="thtxt">Resultado</span></th><th scope="col" class="num"><span class="thtxt">% gasto</span></th></tr></thead>
           <tbody>${linhas.map(l => `<tr><td class="strong">${MES_LONGO[l.m]}</td><td class="num">${brl(l.rec)}</td><td class="num">${brl(l.gas)}</td><td class="num strong">${brl(l.saldo)}</td><td class="num">${l.rec ? Math.round(l.gas / l.rec * 100) : 0}%</td></tr>`).join('')}</tbody>
           <tfoot><tr><td>Total</td><td class="num">${brl(sum('rec'))}</td><td class="num">${brl(sum('gas'))}</td><td class="num">${brl(sum('saldo'))}</td><td class="num">${sum('rec') ? Math.round(sum('gas') / sum('rec') * 100) : 0}%</td></tr></tfoot>
         </table></div>

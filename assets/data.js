@@ -246,12 +246,14 @@
     };
   }
 
-  /* Dinheiro hoje na conta do Luiz: o que já foi pago ou recebido, somando pessoal e
-     empresa, porque os dois passam pela mesma conta. Fatura futura ainda não saiu dela. */
-  function saldoConta() {
+  /* Dinheiro em caixa hoje: tudo o que já foi recebido menos tudo o que já foi pago,
+     de todos os meses. Fatura futura ainda não saiu da conta. O Luiz soma a empresa,
+     porque os dois passam pela mesma conta. */
+  const CAIXA = { luiz: ['luiz', 'empresa'], cleide: ['cleide'], casal: ['luiz', 'empresa', 'cleide', 'casa'] };
+  function saldoCaixa(p) {
     const d = hoje();
-    const total = (p, kind) => ROWS[p][kind].filter(r => r.pag && r.pag <= d).reduce((s, r) => s + r.val, 0);
-    return Math.round((total('luiz', 'in') + total('empresa', 'in') - total('luiz', 'out') - total('empresa', 'out')) * 100) / 100;
+    const total = (q, kind) => ROWS[q][kind].filter(r => r.pag && r.pag <= d).reduce((s, r) => s + r.val, 0);
+    return Math.round(CAIXA[p].reduce((s, q) => s + total(q, 'in') - total(q, 'out'), 0) * 100) / 100;
   }
 
   /* Seis meses até o mês escolhido, atravessando a virada do ano quando preciso. */
@@ -355,7 +357,7 @@
     linhas: (p, kind) => ROWS[p][kind],
     temDados: () => Object.values(ROWS).some(g => g.in.length + g.out.length > 0)
       || Object.keys(CFG.metas).length + Object.keys(CFG.limites).length + Object.keys(CFG.empresa).length > 0,
-    totais, saldoConta, serieAnual, metas, despesas, casalGrupos, faturas, evolucaoCategoria, empresa,
+    totais, saldoCaixa, serieAnual, metas, despesas, casalGrupos, faturas, evolucaoCategoria, empresa,
     metaDe, limiteDe, metaEmpresa, definirMeta, definirLimite, definirMetaEmpresa,
     substituir, conectarRemoto, desconectarRemoto, formPadrao, adicionar, remover, restaurarLinha, confirmar, apagarTudo, mesDe, anoDe, hoje, anos
   };

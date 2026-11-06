@@ -7,6 +7,7 @@
   const REF = new Date().getMonth(), ANO = new Date().getFullYear();
   const mesAtual = MES_LONGO[REF].toLowerCase();
   const brl = window.CH.brl;
+  const brl2 = v => 'R$ ' + v.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
   const kpi = (l, v, sub) => `<div class="pk"><span>${l}</span><strong>${v}</strong>${sub ? `<small>${sub}</small>` : ''}</div>`;
 
   function preview(p) {
@@ -28,8 +29,8 @@
       return;
     }
     const t = window.FIN.totais(p, REF, ANO, 'real');
-    kpis.innerHTML = kpi(p === 'casal' ? 'Saldo do casal' : 'Saldo líquido', brl(t.saldo), mesAtual + ' de ' + ANO)
-      + kpi('Recebido', brl(t.rec)) + kpi('Gasto', brl(t.gas));
+    kpis.innerHTML = kpi(p === 'casal' ? 'Caixa do casal hoje' : 'Saldo em caixa hoje', brl2(window.FIN.saldoCaixa(p)))
+      + kpi('Recebido', brl(t.rec), 'em ' + mesAtual) + kpi('Gasto', brl(t.gas), 'em ' + mesAtual);
     legend.innerHTML = '<span><i class="lg-line"></i>Recebimentos</span><span><i class="lg-bar"></i>Gastos</span>';
     const s = window.FIN.serieAnual(p, ANO, 'real');
     window.CH.annual(chart, {
@@ -39,15 +40,12 @@
     });
   }
 
-  /* Saldos reais do mês atual nos cartões do hero e no passo 2. */
+  /* Saldo em caixa de hoje nos cartões do hero e no passo 2. */
   function saldos() {
-    const t = p => window.FIN.totais(p, REF, ANO, 'real');
-    const a = t('luiz'), b = t('cleide'), c = t('casal');
-    document.querySelectorAll('[data-saldo]').forEach(el => {
-      el.textContent = brl({ luiz: a, cleide: b, casal: c }[el.dataset.saldo].saldo);
-    });
-    document.querySelectorAll('[data-mes-sub]').forEach(el => { el.textContent = 'saldo líquido de ' + mesAtual; });
-    document.getElementById('fc-casal-sub').textContent = brl(c.rec) + ' recebidos, ' + brl(c.gas) + ' gastos';
+    const c = window.FIN.totais('casal', REF, ANO, 'real');
+    document.querySelectorAll('[data-saldo]').forEach(el => { el.textContent = brl2(window.FIN.saldoCaixa(el.dataset.saldo)); });
+    document.querySelectorAll('[data-mes-sub]').forEach(el => { el.textContent = 'em caixa hoje'; });
+    document.getElementById('fc-casal-sub').textContent = 'em ' + mesAtual + ': ' + brl(c.rec) + ' recebidos, ' + brl(c.gas) + ' gastos';
   }
   window.addEventListener('cfi:landing', saldos);
   saldos();
