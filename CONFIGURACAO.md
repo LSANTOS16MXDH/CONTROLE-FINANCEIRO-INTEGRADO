@@ -41,10 +41,10 @@ O site é estático e fica na Vercel. O login e os dados ficam no Supabase, que 
 
 ## 4. Conectar o site ao Supabase
 
-1. No Supabase, abra **Project Settings > API** e copie a **Project URL** e a chave **anon public**.
+1. No Supabase, copie a **Project URL** (`https://SEU-PROJETO.supabase.co`, sem `/rest/v1/`) e a chave **publishable** (`sb_publishable_...`, chamada de **anon public** em projetos antigos).
 2. Preencha [`assets/config.js`](assets/config.js) com esses dois valores e envie para o GitHub. A Vercel publica sozinha.
 
-A chave `anon public` pode ficar no repositório, porque as regras do banco protegem os dados. **Nunca** use a chave `service_role` no site.
+A chave `publishable` pode ficar no repositório, porque as regras do banco protegem os dados. **Nunca** use a chave `secret` ou `service_role` no site.
 
 ## 5. Entrar e convidar a segunda pessoa
 
