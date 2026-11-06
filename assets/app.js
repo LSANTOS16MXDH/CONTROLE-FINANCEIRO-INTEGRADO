@@ -15,9 +15,9 @@
   const SAIDA_FORMAS = ['Crédito', 'Débito', 'Débito Aut.', 'PIX', 'Transferência', 'Boleto'];
   const ENTRADA_FORMAS = ['PIX', 'Transferência', 'Boleto', 'Dinheiro'];
   const TIPOS = ['Único', 'Recorrente', 'Parcelado'];
-  const EMP_ENTRADA = ['Boleto', 'Transferência', 'PIX Corp'];
-  const EMP_SAIDA = ['PIX Corp', 'Crédito PJ', 'Débito Aut.', 'Boleto', 'Transferência'];
-  const CARTOES_CASA = ['PICPAY LUIZ', 'PICPAY CLEIDE', 'INTER LUIZ', 'NUBANK CLEIDE'];
+  const EMP_ENTRADA = ['PIX', 'Boleto', 'Transferência', 'PIX Corp'];
+  const EMP_SAIDA = ['PIX', 'Crédito', 'Débito', 'PIX Corp', 'Crédito PJ', 'Débito Aut.', 'Boleto', 'Transferência'];
+  const CARTOES_CASA = ['PICPAY LUIZ', 'PICPAY CLEIDE', 'INTER LUIZ', 'ITAU PLATINUM LUIZ', 'CREDICARD LUIZ', 'NUBANK CLEIDE'];
 
   const ui = {
     month: new Date().getMonth(), year: new Date().getFullYear(), mode: 'real', card: {}, catIn: {}, catOut: {},
@@ -31,13 +31,13 @@
     'cleide-lancamentos': { lanc: 'cleide', perfil: 'cleide', title: 'Lançamentos de Cleide' },
     casal: { dash: 'casal', perfil: 'casal', title: 'Dashboard do casal' },
     'casa-lancamentos': { lanc: 'casa', perfil: 'casal', title: 'Gastos da casa' },
-    empresa: { emp: true, perfil: 'empresa', title: 'Painel executivo' },
-    'empresa-lancamentos': { lanc: 'empresa', perfil: 'empresa', title: 'Lançamentos da empresa' },
+    empresa: { emp: true, perfil: 'empresa', title: 'Painel da Sixteen Design' },
+    'empresa-lancamentos': { lanc: 'empresa', perfil: 'empresa', title: 'Lançamentos da Sixteen Design' },
     plano: { plano: true, title: 'Plano de contas' },
     relatorios: { rel: true, title: 'Relatórios' },
     conta: { conta: true, title: 'Minha conta' }
   };
-  const PERFIS = [['luiz', 'Luiz', 'luiz', 'luiz-lancamentos'], ['cleide', 'Cleide', 'cleide', 'cleide-lancamentos'], ['casal', 'Casal', 'casal', 'casa-lancamentos'], ['empresa', 'Empresa', 'empresa', 'empresa-lancamentos']];
+  const PERFIS = [['luiz', 'Luiz', 'luiz', 'luiz-lancamentos'], ['cleide', 'Cleide', 'cleide', 'cleide-lancamentos'], ['casal', 'Casal', 'casal', 'casa-lancamentos'], ['empresa', 'Sixteen Design', 'empresa', 'empresa-lancamentos']];
 
   /* ---------- Componentes ---------- */
   const IC = {
@@ -188,7 +188,7 @@
     const vazio = e.totalRec === 0 && e.totalGas === 0 && e.aReceber === 0 && e.aPagar === 0;
 
     $('#view').innerHTML = `
-      ${pageHead('Dashboard financeiro geral empresarial — Painel executivo', yearSelect())}
+      ${pageHead('Dashboard financeiro — Sixteen Design', yearSelect())}
       ${vazio ? aviso(`Nenhum lançamento em ${ui.year}.`, 'empresa-lancamentos', 'Fazer um lançamento') : ''}
       <div class="emp-top">
         <section class="card panel">
@@ -231,7 +231,7 @@
           <div class="chart" id="ch-acc" data-h="180"></div>
         </section>
       </div>
-      ${footer('Painel executivo empresarial')}`;
+      ${footer('Painel da Sixteen Design')}`;
 
     const center = t => `<small>${t}</small>`;
     C.donut($('#ch-mix-r'), { size: 120, stroke: 13, segs: recSegs, center: center('R-P / R-S'), aria: 'Composição das receitas' });
@@ -248,12 +248,13 @@
     const emp = p === 'empresa', casa = p === 'casa', out = kind === 'out';
     const id = `f-${p}-${kind}`;
     const v = ui.drafts[id] || F.formPadrao(p, kind);
-    const cats = out ? d.catOut : d.catIn;
+    const desc = (out ? d.descOut : d.descIn) || {};
+    const cats = (out ? d.catOut : d.catIn).map(c => [c, desc[c] ? `${c} — ${desc[c]}` : c]);
     const formas = emp ? (out ? EMP_SAIDA : EMP_ENTRADA) : (out ? SAIDA_FORMAS : ENTRADA_FORMAS);
     let cardField = '';
     if (out) {
-      const list = emp ? ['PJ ITAÚ', '-'] : casa ? ['-'].concat(CARTOES_CASA) : ['-'].concat(d.cartoes);
-      cardField = `<div class="fld"><label for="${id}-card">${emp ? 'Cartão/conta' : 'Cartão'}</label><select id="${id}-card" name="card">${opts(list, v.card)}</select></div>`;
+      const list = emp ? ['PJ ITAÚ', '-'].concat(d.cartoes) : casa ? ['-'].concat(CARTOES_CASA) : ['-'].concat(d.cartoes);
+      cardField = `<div class="fld"><label for="${id}-card">Cartão/conta</label><select id="${id}-card" name="card">${opts(list, v.card)}</select></div>`;
     }
     return `<form class="lform ${out ? 'is-out' : 'is-in'}" id="${id}" data-p="${p}" data-kind="${kind}" novalidate>
       <div class="fld"><label for="${id}-cat">Categoria</label><select id="${id}-cat" name="cat">${opts(cats, v.cat)}</select></div>
@@ -273,14 +274,16 @@
   const COL_IN = [['cat', 'Categoria'], ['obs', 'Observações'], ['val', 'Valor', 'num'], ['forma', 'Forma'], ['parc', 'Parcela'], ['venc', 'Data venc.'], ['pag', 'Data pagto.'], ['status', 'Status'], ['mes', 'Mês'], ['ano', 'Ano']];
   const COL_OUT = [['cat', 'Descrição'], ['obs', 'Observações'], ['val', 'Valores', 'num'], ['forma', 'Forma'], ['card', 'Cartão crédito'], ['parc', 'Nº parcela'], ['venc', 'Data venc.'], ['pag', 'Data pagto.'], ['status', 'Status'], ['mes', 'Mês'], ['ano', 'Ano']];
 
+  /* Sem pagamento: "Atrasado" depois do vencimento, "Previsto" até ele. */
+  const atrasado = r => !r.pag && r.venc < F.hoje();
   const statusPill = (r, p, kind) => r.pag
     ? `<span class="pill ok">${IC.check}Concluído</span>`
-    : (kind ? `<button class="pill wait" data-confirm="${r.id}" data-p="${p}" data-kind="${kind}" title="Confirmar pagamento com a data de hoje">${IC.clock}Pendente</button>` : `<span class="pill wait">${IC.clock}Pendente</span>`);
+    : `<button class="pill ${atrasado(r) ? 'late' : 'wait'}" data-confirm="${r.id}" data-p="${p}" data-kind="${kind}" title="Confirmar pagamento com a data de hoje">${atrasado(r) ? IC.warn + 'Atrasado' : IC.clock + 'Previsto'}</button>`;
 
   function sortRows(rows, key) {
     const s = ui.sort[key];
     if (!s) return rows;
-    const val = r => s.col === 'status' ? (r.pag ? 1 : 0) : s.col === 'mes' ? F.mesDe(r.venc) : s.col === 'ano' ? F.anoDe(r.venc) : r[s.col];
+    const val = r => s.col === 'status' ? (r.pag ? 2 : atrasado(r) ? 0 : 1) : s.col === 'mes' ? F.mesDe(r.venc) : s.col === 'ano' ? F.anoDe(r.venc) : r[s.col];
     return rows.slice().sort((a, b) => {
       const x = val(a), y = val(b);
       const c = typeof x === 'number' ? x - y : String(x).localeCompare(String(y), 'pt-BR');
@@ -326,6 +329,7 @@
       <div><span>Entradas brutas</span><strong><i class="dot dot-emerald"></i>${brl2(t.rec)}</strong></div>
       <div><span>Saídas totais</span><strong><i class="dot dot-coral"></i>${brl2(t.gas)}</strong></div>
       <div><span>Total líquido</span><strong><i class="dot dot-cyan"></i>${brl2(t.saldo)}</strong></div>
+      ${PROFILES[p].conta ? `<div><span>Saldo hoje (${esc(PROFILES[p].conta)})</span><strong>${brl2(F.saldoConta())}</strong></div>` : ''}
     </div>`;
   }
 
@@ -354,25 +358,24 @@
         </section>
         ${footer('Gastos da casa (Cleide &amp; Luiz)')}`;
     } else {
-      const titulo = emp ? 'Módulo de lançamentos empresarial (alimentador de dados)' : 'Interface de lançamentos — ' + PROFILES[p].nome;
+      const titulo = emp ? 'Lançamentos — Sixteen Design' : 'Interface de lançamentos — ' + PROFILES[p].nome;
       const direita = emp ? monthSelect() + yearSelect() + resumoEmpresa() : monthSelect() + yearSelect() + resumo(p);
       const showIn = !emp || ui.empresaAba !== 'saidas', showOut = !emp || ui.empresaAba !== 'entradas';
       html = `${pageHead(titulo, direita)}
-        ${showIn ? `<section class="card panel lanc"><div class="panel-h"><h2 class="c-in">${emp ? 'Formatação rápida de entradas empresariais' : 'Entradas (recebimentos)'}</h2></div>${formHTML(p, 'in')}${tableHTML(p, 'in', COL_IN)}</section>` : ''}
-        ${showOut ? `<section class="card panel lanc"><div class="panel-h"><h2 class="c-out">${emp ? 'Formatação rápida de saídas empresariais' : 'Saídas (despesas)'}</h2></div>${formHTML(p, 'out')}${tableHTML(p, 'out', COL_OUT)}</section>` : ''}
-        ${footer(emp ? 'Gestão de lançamentos empresariais' : 'Lançamentos de ' + PROFILES[p].nome)}`;
+        ${showIn ? `<section class="card panel lanc"><div class="panel-h"><h2 class="c-in">${emp ? 'Entradas da Sixteen Design' : 'Entradas (recebimentos)'}</h2></div>${formHTML(p, 'in')}${tableHTML(p, 'in', COL_IN)}</section>` : ''}
+        ${showOut ? `<section class="card panel lanc"><div class="panel-h"><h2 class="c-out">${emp ? 'Saídas da Sixteen Design' : 'Saídas (despesas)'}</h2></div>${formHTML(p, 'out')}${tableHTML(p, 'out', COL_OUT)}</section>` : ''}
+        ${footer(emp ? 'Lançamentos da Sixteen Design' : 'Lançamentos de ' + PROFILES[p].nome)}`;
     }
     $('#view').innerHTML = html;
     $$('form.lform').forEach(syncCardField);
   }
 
+  /* Crédito sempre pede um cartão; nas outras formas, o cartão/conta é opcional
+     (um PIX pode sair da conta Inter, por exemplo) e não entra na fatura. */
   function syncCardField(form) {
     const p = form.dataset.p, card = form.elements.card;
     if (!card || p === 'empresa') return;
-    const credito = form.elements.forma.value === 'Crédito';
-    card.disabled = !credito;
-    if (!credito) card.value = '-';
-    else if (card.value === '-') card.value = card.options[1] ? card.options[1].value : '-';
+    if (form.elements.forma.value === 'Crédito' && card.value === '-') card.value = card.options[1] ? card.options[1].value : '-';
   }
 
   function parseValor(s) {
@@ -431,12 +434,12 @@
     const campo = (attrs, val, label) => `<input class="plan-input" ${attrs} value="${val > 0 ? num2(val) : ''}" inputmode="decimal" placeholder="0,00" autocomplete="off" aria-label="${esc(label)}">`;
     const bloco = (titulo, p, sub, comMeta) => {
       const d = PROFILES[p];
-      const lin = (tipo, lista, cod, kind) => lista.map((c, i) => `<tr><td class="mono">${cod}.${String(i + 1).padStart(2, '0')}</td><td class="strong">${esc(c)}</td><td><span class="tag">${tipo}</span></td>${comMeta ? `<td class="num">${campo(`data-goal="${p}" data-kind="${kind}" data-cat="${esc(c)}"`, F.metaDe(p, kind, c), `Meta mensal de ${c}`)}</td>` : ''}</tr>`).join('');
+      const lin = (tipo, lista, cod, kind) => lista.map((c, i) => `<tr><td class="mono">${cod}.${String(i + 1).padStart(2, '0')}</td><td class="strong">${esc(c)}${(kind === 'in' ? d.descIn : d.descOut) && (kind === 'in' ? d.descIn : d.descOut)[c] ? `<small class="plan-desc">${esc((kind === 'in' ? d.descIn : d.descOut)[c])}</small>` : ''}</td><td><span class="tag">${tipo}</span></td>${comMeta ? `<td class="num">${campo(`data-goal="${p}" data-kind="${kind}" data-cat="${esc(c)}"`, F.metaDe(p, kind, c), `Meta mensal de ${c}`)}</td>` : ''}</tr>`).join('');
       return `<section class="card panel"><div class="panel-h"><h2>${titulo}</h2><a class="linkarrow" href="#${sub}">Lançar <span aria-hidden="true">→</span></a></div>
         <div class="tablewrap" tabindex="0" role="region" aria-label="Plano de contas: ${titulo}"><table class="tbl-compact"><thead><tr><th scope="col"><span class="thtxt">Código</span></th><th scope="col"><span class="thtxt">Conta</span></th><th scope="col"><span class="thtxt">Tipo</span></th>${comMeta ? '<th scope="col" class="num"><span class="thtxt">Meta mensal (R$)</span></th>' : ''}</tr></thead>
         <tbody>${lin('Entrada', d.catIn, '1', 'in')}${lin('Saída', d.catOut, '2', 'out')}</tbody></table></div></section>`;
     };
-    const cartoes = [['luiz', 'PICPAY'], ['luiz', 'INTER'], ['cleide', 'PICPAY'], ['cleide', 'NUBANK']];
+    const cartoes = ['luiz', 'cleide'].flatMap(p => PROFILES[p].cartoes.map(c => [p, c]));
     const empMetas = [['metaRec', 'Meta de receitas no ano'], ['tetoDesp', 'Limite de despesas no ano'], ['metaRes', 'Meta de resultado no ano']];
     $('#view').innerHTML = `${pageHead('Plano de contas')}
       <p class="notice">Preencha metas e limites com os seus valores. Cada campo é salvo assim que você sai dele.</p>
@@ -444,10 +447,10 @@
         <section class="card panel"><div class="panel-h"><h2>Limites dos cartões</h2></div>
           <div class="plan-fields">${cartoes.map(([p, c]) => `<label>${c} — ${PROFILES[p].curto}<span class="plan-prefix">R$</span>${campo(`data-limit="${p}" data-card="${c}"`, F.limiteDe(p, c), `Limite do cartão ${c} de ${PROFILES[p].curto}`)}</label>`).join('')}</div>
         </section>
-        <section class="card panel"><div class="panel-h"><h2>Metas da empresa</h2></div>
+        <section class="card panel"><div class="panel-h"><h2>Metas da Sixteen Design</h2></div>
           <div class="plan-fields">${empMetas.map(([k, l]) => `<label>${l}<span class="plan-prefix">R$</span>${campo(`data-emp="${k}"`, F.metaEmpresa(k), l)}</label>`).join('')}</div>
         </section>
-        ${bloco('Luiz Santos', 'luiz', 'luiz-lancamentos', true)}${bloco('Cleide Nascimento', 'cleide', 'cleide-lancamentos', true)}${bloco('Casa (casal)', 'casa', 'casa-lancamentos', true)}${bloco('Empresa', 'empresa', 'empresa-lancamentos', false)}
+        ${bloco('Luiz Santos', 'luiz', 'luiz-lancamentos', true)}${bloco('Cleide Nascimento', 'cleide', 'cleide-lancamentos', true)}${bloco('Casa (casal)', 'casa', 'casa-lancamentos', true)}${bloco('Sixteen Design', 'empresa', 'empresa-lancamentos', false)}
       </div>
       ${footer('Plano de contas')}`;
   }
@@ -463,7 +466,7 @@
       linhas = F.serieAnual(p, y, mode).map((t, m) => ({ m, rec: t.rec, gas: t.gas, saldo: t.saldo }));
     }
     const sum = k => linhas.reduce((s, l) => s + l[k], 0);
-    const nomes = [['luiz', 'LUIZ SANTOS'], ['cleide', 'CLEIDE NASCIMENTO'], ['casal', 'CASAL'], ['empresa', 'EMPRESA']];
+    const nomes = [['luiz', 'LUIZ SANTOS'], ['cleide', 'CLEIDE NASCIMENTO'], ['casal', 'CASAL'], ['empresa', 'SIXTEEN DESIGN']];
     $('#view').innerHTML = `
       ${pageHead('Relatórios', (p === 'empresa' ? '' : modeToggle()) + yearSelect() + select('sel-rel', 'Perfil', nomes, p))}
       <section class="card panel">
@@ -666,7 +669,10 @@
     }
     const form = t.closest('form.lform');
     if (form) {
-      if (t.name === 'forma') syncCardField(form);
+      if (t.name === 'forma') {
+        if (t.value !== 'Crédito' && form.elements.card && form.dataset.p !== 'empresa') form.elements.card.value = '-';
+        syncCardField(form);
+      }
       if (t.name === 'tipo') $('.fld-parc', form).hidden = t.value !== 'Parcelado';
       return;
     }

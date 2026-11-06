@@ -10,9 +10,32 @@
   const PROFILES = {
     luiz: {
       nome: 'Luiz Santos', curto: 'Luiz',
-      catIn: ['OFICINA', 'TRÁFEGO DIGITAL', '3D', 'UBER', 'JORNAL'],
-      catOut: ['CASA', 'ALIMENTAÇÃO', 'ROUPA', 'UBER'],
-      cartoes: ['PICPAY', 'INTER']
+      catIn: ['ENTREGAS DE JORNAL', 'SIXTEEN DESIGN', 'GR OFF ROAD', 'RESTAURANTE', 'CARNAVAL', 'OUTROS', '99', 'UBER'],
+      descIn: { 'SIXTEEN DESIGN': 'Empresa', RESTAURANTE: 'Entregas' },
+      catOut: ['CASA', 'ALIMENTAÇÃO', 'ROUPA', 'CABELO', 'FARRA', 'JUROS', 'GR OFF ROAD', 'LAZER', 'PEÇAS MOTO + CONTAS MOTO', 'GASOLINA', 'REMÉDIO', 'IOF´S', 'INTER', 'JOGO', 'CNPJ', 'PIX CRÉDITO', 'SEGUROS', 'ELETRÔNICOS', 'INTERNET', 'HONDA', 'CARTÃO CLEIDE', 'CURSOS E ESTUDOS', 'APPLE', 'ACADEMIA'],
+      descOut: {
+        CASA: 'Geral',
+        FARRA: 'Bebidas',
+        JUROS: 'Cartões de crédito',
+        'GR OFF ROAD': 'Custos de produtos',
+        LAZER: 'Final de semana e lazer com namorada e amigos',
+        'PEÇAS MOTO + CONTAS MOTO': 'Gastos de manutenção e peças',
+        GASOLINA: 'Custo de trabalho',
+        'IOF´S': 'IOF sobre atrasos de cartões de crédito',
+        INTER: 'Cartão de crédito',
+        JOGO: 'MXBikes, Flight Simulator, time virtual',
+        CNPJ: 'PGDAS, parcelamentos, dívidas mensais do CNPJ',
+        'PIX CRÉDITO': 'PIX feito em cartões de crédito',
+        SEGUROS: 'Vida, moto, previdência',
+        'ELETRÔNICOS': 'Computador, iPhone novo, plotter de recorte da oficina',
+        INTERNET: 'VS internet fixo, Vero internet fixo (Itabirito), Vivo móvel, BMI fixo (Belo Horizonte)',
+        HONDA: 'Consórcio de uma CRF 250F zero',
+        'CARTÃO CLEIDE': 'Contas pessoais pagas no cartão da Cleide',
+        APPLE: 'Armazenamento e apps: Spotify, Netflix, CapCut, iCloud, Gemini, Claude',
+        ACADEMIA: 'Pagamentos mensais do plano de academia'
+      },
+      cartoes: ['CREDICARD', 'ITAU PLATINUM', 'INTER', 'PICPAY'],
+      conta: 'NUBANK'
     },
     cleide: {
       nome: 'Cleide Nascimento', curto: 'Cleide',
@@ -27,10 +50,11 @@
       cartoes: []
     },
     empresa: {
-      nome: 'Empresa', curto: 'Empresa',
-      catIn: ['R-P (Vendas)', 'R-P (Produtos)', 'R-S (Serviços)'],
-      catOut: ['D-RH (Folha)', 'D-MKT (Marketing)', 'D-O (Operacional)'],
-      cartoes: []
+      nome: 'Sixteen Design', curto: 'Sixteen Design',
+      catIn: ['R-P (Vendas)', 'R-P (Produtos)', 'R-S (Serviços)', 'R-S (Oficina)'],
+      catOut: ['D-RH (Folha)', 'D-MKT (Marketing)', 'D-O (Operacional)', 'D-O (Unicores)', 'D-O (Materiais oficina)'],
+      descOut: { 'D-O (Unicores)': 'Fornecedor de tintas', 'D-O (Materiais oficina)': 'Materiais e equipamentos em geral' },
+      cartoes: ['CREDICARD', 'ITAU PLATINUM', 'INTER', 'PICPAY']
     }
   };
 
@@ -47,6 +71,8 @@
     'PICPAY LUIZ': [['luiz', 'PICPAY']],
     'PICPAY CLEIDE': [['cleide', 'PICPAY']],
     'INTER LUIZ': [['luiz', 'INTER']],
+    'ITAU PLATINUM LUIZ': [['luiz', 'ITAU PLATINUM']],
+    'CREDICARD LUIZ': [['luiz', 'CREDICARD']],
     'NUBANK CLEIDE': [['cleide', 'NUBANK']]
   };
 
@@ -208,6 +234,7 @@
   function fatura(owner, card, m, y, mode) {
     const tag = card + ' ' + PROFILES[owner].curto.toUpperCase();
     return soma(owner, 'out', m, y, mode, r => r.card === card && r.forma === 'Crédito')
+      + (owner === 'luiz' ? soma('empresa', 'out', m, y, mode, r => r.card === card && r.forma === 'Crédito') : 0)
       + soma('casa', 'out', m, y, mode, r => r.card === tag && r.forma === 'Crédito');
   }
 
@@ -217,6 +244,14 @@
       limite: pares.reduce((s, [o, c]) => s + limiteDe(o, c), 0),
       meses: MES.map((_, m) => pares.reduce((s, [o, c]) => s + fatura(o, c, m, y, mode), 0))
     };
+  }
+
+  /* Dinheiro hoje na conta do Luiz: o que já foi pago ou recebido, somando pessoal e
+     empresa, porque os dois passam pela mesma conta. Fatura futura ainda não saiu dela. */
+  function saldoConta() {
+    const d = hoje();
+    const total = (p, kind) => ROWS[p][kind].filter(r => r.pag && r.pag <= d).reduce((s, r) => s + r.val, 0);
+    return Math.round((total('luiz', 'in') + total('empresa', 'in') - total('luiz', 'out') - total('empresa', 'out')) * 100) / 100;
   }
 
   /* Seis meses até o mês escolhido, atravessando a virada do ano quando preciso. */
@@ -320,7 +355,7 @@
     linhas: (p, kind) => ROWS[p][kind],
     temDados: () => Object.values(ROWS).some(g => g.in.length + g.out.length > 0)
       || Object.keys(CFG.metas).length + Object.keys(CFG.limites).length + Object.keys(CFG.empresa).length > 0,
-    totais, serieAnual, metas, despesas, casalGrupos, faturas, evolucaoCategoria, empresa,
+    totais, saldoConta, serieAnual, metas, despesas, casalGrupos, faturas, evolucaoCategoria, empresa,
     metaDe, limiteDe, metaEmpresa, definirMeta, definirLimite, definirMetaEmpresa,
     substituir, conectarRemoto, desconectarRemoto, formPadrao, adicionar, remover, restaurarLinha, confirmar, apagarTudo, mesDe, anoDe, hoje, anos
   };
