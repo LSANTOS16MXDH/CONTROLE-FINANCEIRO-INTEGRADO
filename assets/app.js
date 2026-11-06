@@ -489,15 +489,23 @@
   const IC_GOOGLE = '<svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path fill="#4285F4" d="M22.5 12.2c0-.8-.1-1.5-.2-2.2H12v4.3h5.9a5 5 0 0 1-2.2 3.3v2.7h3.5c2.1-1.9 3.3-4.7 3.3-8.1z"/><path fill="#34A853" d="M12 23c3 0 5.4-1 7.2-2.7l-3.5-2.7c-1 .7-2.2 1-3.7 1-2.9 0-5.3-1.9-6.2-4.5H2.2v2.8A11 11 0 0 0 12 23z"/><path fill="#FBBC05" d="M5.8 14.1a6.6 6.6 0 0 1 0-4.2V7.1H2.2a11 11 0 0 0 0 9.8z"/><path fill="#EA4335" d="M12 5.4c1.6 0 3 .6 4.1 1.6l3.1-3.1A11 11 0 0 0 2.2 7.1l3.6 2.8C6.7 7.3 9.1 5.4 12 5.4z"/></svg>';
   const IC_APPLE = '<svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor" aria-hidden="true"><path d="M16.4 12.6c0-2.3 1.9-3.4 2-3.5a4.3 4.3 0 0 0-3.4-1.8c-1.4-.2-2.8.8-3.5.8s-1.9-.8-3.1-.8a4.6 4.6 0 0 0-3.9 2.4c-1.7 2.9-.4 7.2 1.2 9.5.8 1.1 1.7 2.4 3 2.3 1.2 0 1.6-.8 3.1-.8s1.8.8 3.1.7 2.1-1.1 2.9-2.3c.9-1.3 1.3-2.6 1.3-2.7s-2.7-1-2.7-3.8zM14 5.8a4.2 4.2 0 0 0 1-3.1 4.3 4.3 0 0 0-2.8 1.4 4 4 0 0 0-1 3c1.1.1 2.1-.5 2.8-1.3z"/></svg>';
 
+  const MARCA = `<div class="gate-marca"><svg viewBox="0 0 32 32" width="30" height="30" aria-hidden="true">
+      <defs><linearGradient id="marca-a" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#00C8F0"/><stop offset="1" stop-color="#10B981"/></linearGradient>
+      <linearGradient id="marca-b" x1="0" y1="1" x2="1" y2="0"><stop offset="0" stop-color="#FF8A3D"/><stop offset="1" stop-color="#10B981"/></linearGradient></defs>
+      <path d="M3 8c9 0 10 8 18 8h8" fill="none" stroke="url(#marca-a)" stroke-width="3.4" stroke-linecap="round"/>
+      <path d="M3 24c9 0 10-8 18-8h8" fill="none" stroke="url(#marca-b)" stroke-width="3.4" stroke-linecap="round"/>
+    </svg><span>Controle Financeiro <b>Integrado</b></span></div>`;
+
   function renderPortao() {
     const v = $('#view');
     const erro = A.erro ? `<p class="form-err gate-err" role="alert">${esc(A.erro)}</p>` : '';
     if (A.estado === 'carregando') {
-      v.innerHTML = '<section class="card gate" aria-busy="true"><h1>Carregando seus dados</h1><p>Só um instante.</p></section>';
+      v.innerHTML = `<section class="card gate" aria-busy="true">${MARCA}<p>${A.usuario ? 'Carregando seus dados…' : 'Só um instante…'}</p></section>`;
     } else if (A.estado === 'anonimo') {
       v.innerHTML = `<section class="card gate">
-        <h1>Entre na sua conta</h1>
-        <p>No primeiro acesso, a conta é criada automaticamente.</p>
+        ${MARCA}
+        <h1>Todo o seu dinheiro em um único fluxo.</h1>
+        <p>Entradas, saídas e metas reunidas em um só painel. Entre para continuar.</p>
         ${erro}
         <div class="gate-actions">
           <button class="btn btn-provider" data-login="google">${IC_GOOGLE}Continuar com Google</button>
@@ -506,6 +514,7 @@
       </section>`;
     } else if (A.estado === 'sem-espaco') {
       v.innerHTML = `<section class="card gate">
+        ${MARCA}
         <h1>Quase lá</h1>
         <p>Conectado como ${esc(A.usuario.email || 'sua conta')}. Entre na conta conjunta que você recebeu ou crie uma.</p>
         <form class="gate-form" id="form-convite">
@@ -520,7 +529,7 @@
         <button class="linkbtn" data-sair>Sair e usar outra conta</button>
       </section>`;
     } else {
-      v.innerHTML = `<section class="card gate"><h1>Algo não saiu como esperado</h1>${erro}
+      v.innerHTML = `<section class="card gate">${MARCA}<h1>Algo não saiu como esperado</h1>${erro}
         <div class="gate-actions">${A.usuario ? '<button class="btn btn-ink btn-sm" data-tentar>Tentar de novo</button>' : ''}</div></section>`;
     }
   }
@@ -556,8 +565,6 @@
   }
 
   /* ---------- Roteador ---------- */
-  const LANDING_ANCHORS = ['inicio', 'visao', 'como-funciona', 'telas', 'saiba-mais'];
-
   function setNav(key) {
     $$('#mainnav a').forEach(a => {
       const on = a.dataset.nav === key;
@@ -568,54 +575,31 @@
         nav.scrollLeft = a.offsetLeft - nav.offsetLeft - (nav.clientWidth - a.offsetWidth) / 2;
       } else a.removeAttribute('aria-current');
     });
-    const cta = $('#topcta');
-    if (A.ativo) {
-      const dentro = A.estado === 'pronto';
-      cta.textContent = dentro ? 'Conta' : 'Entrar';
-      cta.href = dentro ? '#conta' : '#entrar';
-    }
+    $('#topcta').hidden = !A.ativo;
+    $('.brand').href = '#' + ui.lastProfile;
     $('#mainnav a[data-nav="lancamentos"]').href = '#' + ui.lastLanc;
     $('#mainnav a[data-nav="dashboards"]').href = '#' + ui.lastProfile;
   }
 
   function route(scroll) {
     C.hideTip();
-    const h = (location.hash || '#inicio').slice(1);
-    const landing = $('#landing'), app = $('#app');
-    if (h === 'entrar' && (!A.ativo || A.estado === 'pronto')) {
-      location.replace('#' + ((A.ativo && A.pegarDestino()) || 'luiz'));
-      return;
-    }
-    const r = h === 'entrar' ? { portao: true, title: 'Entrar' } : ROUTES[h];
+    const h = location.hash.slice(1);
 
-    if (r && r.conta && !A.ativo) { location.replace('#inicio'); return; }
-
-    if (!r) {
-      const anchor = LANDING_ANCHORS.includes(h) ? h : 'inicio';
-      app.hidden = true;
-      landing.hidden = false;
+    /* Sem login concluído, nenhuma tela abre: só a entrada, seja qual for o endereço. */
+    const bloqueado = A.ativo && A.estado !== 'pronto';
+    document.body.classList.toggle('portao', bloqueado);
+    if (bloqueado) {
+      if (ROUTES[h]) A.guardarDestino(h);
       document.title = 'Controle Financeiro Integrado';
-      setNav(anchor === 'saiba-mais' ? 'saiba' : 'inicio');
-      window.dispatchEvent(new Event('cfi:landing'));
-      if (scroll !== false) {
-        if (anchor === 'inicio') window.scrollTo(0, 0);
-        else { const el = document.getElementById(anchor); if (el) el.scrollIntoView(); }
-      }
-      return;
-    }
-
-    landing.hidden = true;
-    app.hidden = false;
-    document.title = r.title + ' · Controle Financeiro Integrado';
-
-    if (A.ativo && A.estado !== 'pronto') {
-      if (!r.portao) A.guardarDestino(h);
-      setNav('');
       $('.profilenav').hidden = true;
       renderPortao();
       if (scroll) window.scrollTo(0, 0);
       return;
     }
+
+    const r = ROUTES[h];
+    if (!r || (r.conta && !A.ativo)) { location.replace('#' + ui.lastProfile); return; }
+    document.title = r.title + ' · Controle Financeiro Integrado';
 
     if (r.dash || r.emp) ui.lastProfile = h;
     if (r.lanc) ui.lastLanc = h;
@@ -747,9 +731,8 @@
 
   /* Mudança de sessão: ao concluir o login, segue para a tela que a pessoa pediu. */
   window.addEventListener('cfi:auth', () => {
-    if (A.estado === 'pronto' && location.hash === '#entrar') { route(); return; }
     if (A.estado === 'pronto') { const d = A.pegarDestino(); if (d && '#' + d !== location.hash) { location.hash = d; return; } }
-    if (A.estado === 'anonimo' && ROUTES[location.hash.slice(1)]) ui.drafts = {};
+    if (A.estado === 'anonimo') ui.drafts = {};
     route();
   });
   window.addEventListener('cfi:aviso', e => toast(e.detail));

@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Controle Financeiro Integrado</title>
-<meta name="description" content="Lançamentos, dashboards e cartões de crédito das contas pessoais, do casal e da empresa em uma única plataforma.">
+<meta name="description" content="Entradas, saídas e metas reunidas em um só painel.">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Inter+Tight:wght@500;600;700&display=swap">
@@ -13,7 +13,7 @@
 <body>
 
 <header class="topbar">
-  <a class="brand" href="#inicio" aria-label="Controle Financeiro Integrado, início">
+  <a class="brand" href="#luiz" aria-label="Controle Financeiro Integrado, painel">
     <svg viewBox="0 0 32 32" width="30" height="30" aria-hidden="true">
       <defs><linearGradient id="logo-a" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#00C8F0"/><stop offset="1" stop-color="#10B981"/></linearGradient>
       <linearGradient id="logo-b" x1="0" y1="1" x2="1" y2="0"><stop offset="0" stop-color="#FF8A3D"/><stop offset="1" stop-color="#10B981"/></linearGradient></defs>
@@ -23,188 +23,18 @@
     <span>Controle Financeiro <b>Integrado</b></span>
   </a>
   <nav class="mainnav" id="mainnav" aria-label="Principal">
-    <a href="#inicio" data-nav="inicio">Início</a>
     <a href="#plano" data-nav="plano">Plano de Contas</a>
     <a href="#luiz-lancamentos" data-nav="lancamentos">Lançamentos</a>
     <a href="#relatorios" data-nav="relatorios">Relatórios</a>
     <a href="#luiz" data-nav="dashboards">Dashboards</a>
-    <a href="#saiba-mais" data-nav="saiba">Saiba Mais</a>
   </nav>
-  <a class="btn btn-ink btn-sm topcta" id="topcta" href="#luiz">Abrir o painel</a>
+  <a class="btn btn-ink btn-sm topcta" id="topcta" href="#conta">Conta</a>
 </header>
 
-<!-- ============ LANDING ============ -->
-<main id="landing">
-  <section class="hero">
-    <div class="hero-copy wrap">
-      <h1>Todo o seu dinheiro em um único fluxo.</h1>
-      <div class="hero-side">
-        <p>Lance entradas e saídas em uma linha. O sistema junta as contas pessoais, as do casal e as da empresa, e mostra o saldo do mês sem nenhuma planilha.</p>
-        <div class="hero-cta">
-          <a class="btn btn-ink" href="#luiz">Abrir o painel</a>
-          <a class="btn btn-ghost" href="#como-funciona">Ver como funciona</a>
-        </div>
-      </div>
-    </div>
-    <div class="stage">
-      <canvas id="flow" aria-hidden="true"></canvas>
-      <a class="flowcard fc-a" href="#luiz">
-        <span class="fc-who"><i class="dot dot-cyan"></i>Luiz Santos</span>
-        <strong data-saldo="luiz">R$ 0</strong>
-        <small data-mes-sub></small>
-      </a>
-      <a class="flowcard fc-b" href="#cleide">
-        <span class="fc-who"><i class="dot dot-coral"></i>Cleide Nascimento</span>
-        <strong data-saldo="cleide">R$ 0</strong>
-        <small data-mes-sub></small>
-      </a>
-      <a class="flowcard fc-c" href="#casal">
-        <span class="fc-who"><i class="dot dot-emerald"></i>Saldo do casal</span>
-        <strong class="big" data-saldo="casal">R$ 0</strong>
-        <small id="fc-casal-sub"></small>
-      </a>
-    </div>
-    <p class="wrap sample-note">Saldos do mês atual, calculados a partir dos seus lançamentos.</p>
-  </section>
-
-  <section class="wrap section" id="visao">
-    <div class="section-head">
-      <h2>Abra e entenda o mês em segundos.</h2>
-      <p>Saldo, evolução anual e faturas na mesma tela. Troque de perfil e veja os dados mudarem.</p>
-    </div>
-    <div class="preview card">
-      <div class="preview-bar">
-        <div class="seg" role="tablist" aria-label="Perfil da prévia" id="preview-tabs">
-          <button role="tab" data-p="luiz" class="on" aria-selected="true">Luiz</button>
-          <button role="tab" data-p="cleide" aria-selected="false">Cleide</button>
-          <button role="tab" data-p="casal" aria-selected="false">Casal</button>
-          <button role="tab" data-p="empresa" aria-selected="false">Empresa</button>
-        </div>
-        <a class="linkarrow" id="preview-link" href="#luiz">Abrir o painel completo <span aria-hidden="true">→</span></a>
-      </div>
-      <div class="preview-body">
-        <div class="preview-kpis" id="preview-kpis"></div>
-        <div class="preview-chart">
-          <div class="legend" id="preview-legend"></div>
-          <div class="chart" id="preview-chart" data-h="300"></div>
-        </div>
-      </div>
-    </div>
-  </section>
-
-  <section class="wrap section" id="como-funciona">
-    <div class="section-head">
-      <h2>Do lançamento à decisão, em três passos.</h2>
-    </div>
-    <ol class="steps">
-      <li class="step card">
-        <span class="stepno">1</span>
-        <h3>Lance em uma linha</h3>
-        <p>Categoria, valor, forma de pagamento, cartão e datas. Sem pagamento registrado, o item fica pendente até você confirmar.</p>
-        <div class="mini-row" aria-hidden="true">
-          <div><label>Categoria</label><span>OFICINA</span></div>
-          <div><label>Valor</label><span>0,00</span></div>
-          <div><label>Forma</label><span>PIX</span></div>
-          <span class="mini-go">Lançar</span>
-        </div>
-      </li>
-      <li class="step card">
-        <span class="stepno">2</span>
-        <h3>O casal consolida sozinho</h3>
-        <p>O que cada pessoa recebe e gasta entra direto no painel conjunto, junto com as contas da casa.</p>
-        <div class="mini-sum" aria-hidden="true">
-          <div><i class="dot dot-cyan"></i><span>Luiz</span><b data-saldo="luiz">R$ 0</b></div>
-          <div><i class="dot dot-coral"></i><span>Cleide</span><b data-saldo="cleide">R$ 0</b></div>
-          <div class="total"><i class="dot dot-emerald"></i><span>Casal</span><b data-saldo="casal">R$ 0</b></div>
-        </div>
-      </li>
-      <li class="step card">
-        <span class="stepno">3</span>
-        <h3>Compare com a meta</h3>
-        <p>Cada centro de custo mostra o realizado contra o planejado, e cada cartão mostra a fatura contra o limite.</p>
-        <div class="mini-bars" aria-hidden="true">
-          <div><span>Centro de custo</span><b>realizado / meta</b><i style="--w:82%"></i></div>
-          <div><span>Categoria de despesa</span><b>gasto / planejado</b><i style="--w:64%"></i></div>
-          <div><span>Cartão de crédito</span><b>fatura / limite</b><i style="--w:46%"></i></div>
-        </div>
-      </li>
-    </ol>
-  </section>
-
-  <section class="wrap section" id="telas">
-    <div class="section-head">
-      <h2>Uma visão para cada parte da sua vida financeira.</h2>
-    </div>
-    <div class="modules">
-      <div class="module">
-        <h3>Pessoal</h3>
-        <p>Dashboard e lançamentos separados para cada pessoa, com metas por centro de custo e faturas mês a mês.</p>
-        <ul>
-          <li><a href="#luiz">Dashboard de Luiz</a></li>
-          <li><a href="#luiz-lancamentos">Lançamentos de Luiz</a></li>
-          <li><a href="#cleide">Dashboard de Cleide</a></li>
-          <li><a href="#cleide-lancamentos">Lançamentos de Cleide</a></li>
-        </ul>
-      </div>
-      <div class="module">
-        <h3>Casal</h3>
-        <p>Entradas consolidadas, despesas por categoria e os cartões dos dois em uma visão conjunta.</p>
-        <ul>
-          <li><a href="#casal">Dashboard do casal</a></li>
-          <li><a href="#casa-lancamentos">Gastos e saídas da casa</a></li>
-        </ul>
-      </div>
-      <div class="module">
-        <h3>Empresa</h3>
-        <p>Painel executivo com receitas e despesas contra a meta, contas a receber e a pagar, resultado e saldo acumulado.</p>
-        <ul>
-          <li><a href="#empresa">Painel executivo</a></li>
-          <li><a href="#empresa-lancamentos">Lançamentos da empresa</a></li>
-        </ul>
-      </div>
-    </div>
-  </section>
-
-  <section class="wrap section" id="saiba-mais">
-    <div class="section-head"><h2>Saiba mais</h2></div>
-    <div class="faq">
-      <details open>
-        <summary>Qual a diferença entre “Somente realizado” e “Realizados + previstos”?</summary>
-        <p>Realizado considera apenas o que já tem data de pagamento. Previstos soma também os itens pendentes, para você ver como o mês deve fechar.</p>
-      </details>
-      <details>
-        <summary>Como registro uma compra parcelada?</summary>
-        <p>Escolha o tipo “Parcelado” e informe o número de parcelas. O sistema cria uma linha por mês, numerada como 1/3, 2/3 e 3/3, e soma cada parcela na fatura do cartão escolhido.</p>
-      </details>
-      <details>
-        <summary>Como usamos em casal?</summary>
-        <p>Cada pessoa entra com a própria conta Google ou Apple. Quem criou o espaço envia o código de convite em Minha conta, e as duas contas passam a usar os mesmos dados.</p>
-      </details>
-      <details>
-        <summary>Como confirmo um pagamento pendente?</summary>
-        <p>Clique no selo “Pendente” na tabela de lançamentos. O item passa para “Concluído” com a data de hoje e entra no realizado.</p>
-      </details>
-      <details>
-        <summary>Onde meus lançamentos ficam salvos?</summary>
-        <p>Em um banco de dados na nuvem, ligado à sua conta. Só as contas do seu espaço conseguem ver os dados, e tudo o que uma pessoa lança aparece para a outra em instantes.</p>
-      </details>
-    </div>
-  </section>
-
-  <section class="wrap section">
-    <div class="closing">
-      <div>
-        <h2>Faça o primeiro lançamento agora.</h2>
-        <p>O painel começa vazio. Lance o primeiro valor e veja o saldo mudar.</p>
-      </div>
-      <a class="btn btn-light" href="#luiz-lancamentos">Começar agora</a>
-    </div>
-  </section>
-  <footer class="wrap sitefoot">Plataforma de Gestão Financeira</footer>
-</main>
-
 <!-- ============ APLICAÇÃO ============ -->
-<div id="app" hidden>
+<canvas id="flow" aria-hidden="true"></canvas>
+
+<div id="app">
   <nav class="profilenav wrap" aria-label="Perfil e tela">
     <div class="seg" id="profile-seg"></div>
     <div class="seg" id="view-seg"></div>
@@ -221,6 +51,6 @@
 <script src="assets/charts.js"></script>
 <script src="assets/sync.js"></script>
 <script src="assets/app.js"></script>
-<script src="assets/landing.js"></script>
+<script src="assets/entrada.js"></script>
 </body>
 </html>

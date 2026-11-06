@@ -48,7 +48,7 @@ A chave `publishable` pode ficar no repositório, porque as regras do banco prot
 
 ## 5. Entrar e convidar a segunda pessoa
 
-1. Abra o site, clique em **Entrar**, use a conta Google autorizada no passo 1 e crie o espaço.
+1. Abra o site, entre com a conta Google autorizada no passo 1 e crie o espaço.
 2. Em **Conta**, copie o código de convite.
 3. A segunda pessoa entra com a própria conta Google e informa o código. O espaço aceita 2 contas; depois disso, o convite é recusado.
 
