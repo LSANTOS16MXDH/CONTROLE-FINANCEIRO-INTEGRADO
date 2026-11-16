@@ -63,6 +63,61 @@ O botão já está pronto, mas fica oculto, porque a Apple exige o **Apple Devel
 
 Uma mesma pessoa que entrar com Google e depois com Apple pode ser tratada como duas contas, então cada pessoa deve escolher um dos dois.
 
+## 7. Agentes inteligentes (WhatsApp e CFO)
+
+Os dois agentes usam o **Google Gemini** (Google AI Studio) e rodam em funções do Supabase (Edge Functions), que ficam em `supabase/functions/`. As chaves ficam só nos segredos do Supabase, nunca no código.
+
+> **Privacidade:** no plano gratuito da API do Gemini, o Google pode usar o conteúdo enviado (comprovantes, áudios e números) para melhorar os produtos dele, e revisores humanos podem ler esse conteúdo. Para evitar isso, ative o faturamento no projeto do Google Cloud ligado à chave: o plano pago não usa os dados para isso. O código não muda.
+
+### 7.1 Banco de dados
+
+No **SQL Editor** do Supabase, cole todo o conteúdo de [`supabase/agentes.sql`](supabase/agentes.sql) e clique em **Run**. Até lá, a tela **Agentes** do site mostra um aviso, e o resto do site funciona normalmente.
+
+### 7.2 Publicar as funções
+
+Em um terminal, dentro da pasta do projeto:
+
+```bash
+npx supabase@2.122.0 login
+npx supabase@2.122.0 link --project-ref hrkslzykntlfepclclcu
+npx supabase@2.122.0 secrets set GEMINI_API_KEY=SUA_CHAVE_DO_AI_STUDIO
+npx supabase@2.122.0 functions deploy cfo --use-api
+npx supabase@2.122.0 functions deploy whatsapp --use-api
+```
+
+Com isso, o **CFO** já funciona na tela **Agentes**. Os modelos podem ser trocados pelos segredos `GEMINI_MODELO` (padrão `gemini-3.8-flash`) e `GEMINI_MODELO_RESERVA` (padrão `gemini-3.5-flash-lite`, usado quando o principal está sobrecarregado ou sem cota).
+
+Sempre que mudar as contas, categorias, formas ou cartões em `assets/data.js`, rode `node scripts/gerar-perfis.mjs` e publique as funções de novo.
+
+### 7.3 Ligar o WhatsApp (Meta)
+
+1. Em [developers.facebook.com](https://developers.facebook.com/apps), crie um app do tipo **Business** e adicione o produto **WhatsApp**.
+2. Em **WhatsApp › API Setup**, anote o **Phone number ID** do número de teste e adicione os números de vocês dois em **To** (o número de teste só conversa com até 5 números cadastrados).
+3. Gere um token permanente: em [business.facebook.com](https://business.facebook.com/settings/system-users), crie um **usuário do sistema**, dê a ele acesso ao app e gere um token com as permissões `whatsapp_business_messaging` e `whatsapp_business_management`. O token temporário da tela de teste expira em 24 horas.
+4. Em **App settings › Basic**, copie o **App Secret**.
+5. Grave os segredos (troque os valores; o `META_VERIFY_TOKEN` é uma senha que você inventa):
+
+   ```bash
+   npx supabase@2.122.0 secrets set META_ACCESS_TOKEN=... META_APP_SECRET=... META_PHONE_NUMBER_ID=... META_VERIFY_TOKEN=uma-senha-longa-qualquer
+   ```
+
+6. Em **WhatsApp › Configuration › Webhook**, informe:
+   - **Callback URL:** `https://hrkslzykntlfepclclcu.supabase.co/functions/v1/whatsapp`
+   - **Verify token:** o mesmo `META_VERIFY_TOKEN`
+   
+   Depois, em **Webhook fields**, assine o campo **messages**.
+7. Em [`assets/config.js`](assets/config.js), preencha `WHATSAPP_NUMERO` com o número do agente (só dígitos, com 55), para o site mostrar o botão **Abrir no WhatsApp**.
+
+### 7.4 Vincular os números
+
+Cada pessoa abre **Agentes** no site, escolhe o perfil padrão e clica em **Gerar código**. Depois envia `VINCULAR CÓDIGO` ao número do agente pelo próprio WhatsApp. O código vale por 15 minutos. A partir daí, fotos, PDFs, áudios e mensagens com gastos ou recebimentos viram lançamentos, e a resposta **desfazer** apaga o último.
+
+### 7.5 Testes
+
+```bash
+npx deno@2.9.6 test --allow-env supabase/functions/_testes/agentes.test.ts
+```
+
 ## Para vender no futuro
 
 A base já separa os dados de cada cliente por espaço. Ainda falta:

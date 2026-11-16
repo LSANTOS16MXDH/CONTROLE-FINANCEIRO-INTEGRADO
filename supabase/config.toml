@@ -1,0 +1,12 @@
+# Configuração das funções do Supabase (Edge Functions).
+# As duas conferem o acesso no próprio código: o WhatsApp pela assinatura da
+# Meta, e o CFO pelo login da pessoa (auth.getUser). Por isso a checagem de JWT
+# do gateway fica desligada.
+
+project_id = "hrkslzykntlfepclclcu"
+
+[functions.whatsapp]
+verify_jwt = false
+
+[functions.cfo]
+verify_jwt = false

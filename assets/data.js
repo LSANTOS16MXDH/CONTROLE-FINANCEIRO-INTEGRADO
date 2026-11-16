@@ -76,6 +76,26 @@
     'NUBANK CLEIDE': [['cleide', 'NUBANK']]
   };
 
+  /* Opções dos formulários de lançamento. Os agentes do servidor usam as mesmas
+     listas (supabase/functions/_shared/perfis.json, gerado por scripts/gerar-perfis.mjs). */
+  const TIPOS = ['Único', 'Recorrente', 'Parcelado'];
+  const FORMAS = {
+    saida: ['Crédito', 'Débito', 'Débito Aut.', 'PIX', 'Transferência', 'Boleto'],
+    entrada: ['PIX', 'Transferência', 'Boleto', 'Dinheiro'],
+    empSaida: ['PIX', 'Crédito', 'Débito', 'PIX Corp', 'Crédito PJ', 'Débito Aut.', 'Boleto', 'Transferência'],
+    empEntrada: ['PIX', 'Boleto', 'Transferência', 'PIX Corp']
+  };
+  const CARTOES_CASA = ['PICPAY LUIZ', 'PICPAY CLEIDE', 'INTER LUIZ', 'ITAU PLATINUM LUIZ', 'CREDICARD LUIZ', 'NUBANK CLEIDE'];
+
+  /* Formas de pagamento e cartões/contas aceitos em cada formulário ('-' = nenhum). */
+  function opcoes(p, kind) {
+    const out = kind === 'out', emp = p === 'empresa';
+    const formas = emp ? (out ? FORMAS.empSaida : FORMAS.empEntrada) : (out ? FORMAS.saida : FORMAS.entrada);
+    const cartoes = !out ? [] : emp ? ['PJ ITAÚ', '-'].concat(PROFILES[p].cartoes)
+      : p === 'casa' ? ['-'].concat(CARTOES_CASA) : ['-'].concat(PROFILES[p].cartoes);
+    return { formas, cartoes };
+  }
+
   /* ---------- Armazenamento ----------
      Sem login configurado, salva neste navegador. Com login, os dados moram no
      banco e aqui fica só a cópia em memória; nada financeiro vai para o navegador. */
@@ -353,7 +373,7 @@
   }
 
   window.FIN = {
-    MES, MES_LONGO, PROFILES, CASAL_CARDS,
+    MES, MES_LONGO, PROFILES, CASAL_CARDS, TIPOS, opcoes,
     linhas: (p, kind) => ROWS[p][kind],
     temDados: () => Object.values(ROWS).some(g => g.in.length + g.out.length > 0)
       || Object.keys(CFG.metas).length + Object.keys(CFG.limites).length + Object.keys(CFG.empresa).length > 0,

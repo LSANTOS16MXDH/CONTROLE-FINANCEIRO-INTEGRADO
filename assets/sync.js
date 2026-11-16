@@ -30,7 +30,7 @@
     return k ? MENSAGENS[k] : 'Não foi possível concluir. Verifique a conexão e tente de novo.';
   };
 
-  let db = null, canal = null, timer = 0;
+  let db = null, canal = null, canalAgentes = null, timer = 0;
 
   /* ---------- Conversão entre banco e tela ---------- */
   const paraBanco = (p, kind, r) => ({
@@ -39,7 +39,7 @@
   });
   const daTela = l => ({
     id: l.id, cat: l.cat, obs: l.obs, val: Number(l.val), forma: l.forma, tipo: l.tipo,
-    card: l.card, parc: l.parc, venc: l.venc, pag: l.pag || ''
+    card: l.card, parc: l.parc, venc: l.venc, pag: l.pag || '', origem: l.origem || 'site'
   });
 
   /* O PostgREST devolve no máximo 1000 linhas por vez. */
@@ -104,6 +104,8 @@
   /* ---------- Sessão ---------- */
   function encerrar() {
     if (canal) { db.removeChannel(canal); canal = null; }
+    if (canalAgentes) { db.removeChannel(canalAgentes); canalAgentes = null; }
+    A.agentes = agentesVazio();
     clearTimeout(timer);
     F.desconectarRemoto();
     A.usuario = null; A.espaco = null; A.membros = []; A.papel = null;
@@ -131,6 +133,7 @@
       F.substituir(d.rows, d.cfg);
       ligarTempoReal();
       definir('pronto');
+      carregarAgentes(true);
     } catch (e) {
       definir('erro', 'Não foi possível carregar seus dados. Verifique a conexão e tente de novo.');
     }
@@ -153,6 +156,79 @@
     A.usuario = novo;
     carregarEspaco();
   }
+
+  /* ---------- Agentes (WhatsApp e CFO) ----------
+     Ficam num canal próprio: se supabase/agentes.sql ainda não foi rodado, o
+     resto do site segue normal e a tela de agentes só mostra um aviso. */
+  function agentesVazio() { return { estado: 'carregando', vinculos: [], mensagens: [] }; }
+  A.agentes = agentesVazio();
+  const avisarAgentes = () => avisar('cfi:agentes');
+
+  async function carregarAgentes(ligar) {
+    if (A.estado !== 'pronto') return;
+    const ws = A.espaco.id;
+    const [v, m] = await Promise.all([
+      db.from('whatsapp_vinculos').select('phone,user_id,profile,created_at').eq('workspace_id', ws).order('created_at'),
+      db.from('cfo_mensagens').select('id,user_id,papel,texto,created_at').eq('workspace_id', ws)
+        .order('created_at', { ascending: false }).limit(60)
+    ]);
+    if (!A.espaco || A.espaco.id !== ws) return;
+    if (v.error || m.error) {
+      const faltando = [v.error, m.error].some(e => e && (e.code === '42P01' || e.code === 'PGRST205' || /does not exist|schema cache/i.test(e.message || '')));
+      A.agentes = { estado: faltando ? 'sem-banco' : 'erro', vinculos: [], mensagens: [] };
+      avisarAgentes();
+      return;
+    }
+    A.agentes = { estado: 'pronto', vinculos: v.data, mensagens: m.data.reverse() };
+    avisarAgentes();
+    if (ligar && !canalAgentes) {
+      const filtro = `workspace_id=eq.${ws}`;
+      let espera = 0;
+      const recarregar = () => { clearTimeout(espera); espera = setTimeout(() => carregarAgentes(false), 200); };
+      canalAgentes = db.channel('agentes-' + ws)
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'cfo_mensagens', filter: filtro }, recarregar)
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'whatsapp_vinculos', filter: filtro }, recarregar)
+        .subscribe();
+    }
+  }
+  A.recarregarAgentes = () => carregarAgentes(false);
+
+  A.gerarCodigoWhats = async perfil => {
+    const { data, error } = await db.rpc('gerar_codigo_whatsapp', { p_profile: perfil });
+    return error ? { erro: 'Não foi possível gerar o código. Tente de novo.' } : { codigo: data };
+  };
+  A.desvincularWhats = async () => {
+    const { error } = await db.from('whatsapp_vinculos').delete().eq('user_id', A.usuario.id);
+    if (!error) await carregarAgentes(false);
+    return error ? 'Não foi possível desvincular. Tente de novo.' : '';
+  };
+
+  const ERROS_CFO = {
+    limite: 'Muitas perguntas na última hora. Espere um pouco e tente de novo.',
+    cota: 'O limite gratuito do Gemini acabou por agora. Tente de novo mais tarde.',
+    nao_autenticado: 'Sua sessão expirou. Saia e entre de novo.'
+  };
+  A.perguntarCFO = async pergunta => {
+    try {
+      const { data: s } = await db.auth.getSession();
+      const r = await fetch(cfg.SUPABASE_URL + '/functions/v1/cfo', {
+        method: 'POST',
+        headers: { Authorization: 'Bearer ' + (s.session ? s.session.access_token : ''), apikey: cfg.SUPABASE_ANON_KEY, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ pergunta })
+      });
+      const d = await r.json().catch(() => ({}));
+      await carregarAgentes(false);
+      if (r.ok && d.texto) return { texto: d.texto };
+      return { erro: ERROS_CFO[d.erro] || (r.status === 404 ? 'O CFO ainda não foi publicado no Supabase.' : 'O CFO não conseguiu responder agora. Tente de novo em instantes.') };
+    } catch (e) {
+      return { erro: 'Sem conexão com o CFO. Verifique a internet e tente de novo.' };
+    }
+  };
+  A.limparCFO = async () => {
+    const { error } = await db.rpc('limpar_cfo', { p_ws: A.espaco.id });
+    if (!error) await carregarAgentes(false);
+    return error ? 'Não foi possível limpar a conversa.' : '';
+  };
 
   /* ---------- Ações da tela ---------- */
   A.entrar = async provedor => {

@@ -1,0 +1,379 @@
+{
+  "tipos": [
+    "Único",
+    "Recorrente",
+    "Parcelado"
+  ],
+  "perfis": {
+    "luiz": {
+      "nome": "Luiz Santos",
+      "curto": "Luiz",
+      "in": {
+        "categorias": [
+          {
+            "nome": "ENTREGAS DE JORNAL",
+            "descricao": ""
+          },
+          {
+            "nome": "SIXTEEN DESIGN",
+            "descricao": "Empresa"
+          },
+          {
+            "nome": "GR OFF ROAD",
+            "descricao": ""
+          },
+          {
+            "nome": "RESTAURANTE",
+            "descricao": "Entregas"
+          },
+          {
+            "nome": "CARNAVAL",
+            "descricao": ""
+          },
+          {
+            "nome": "OUTROS",
+            "descricao": ""
+          },
+          {
+            "nome": "99",
+            "descricao": ""
+          },
+          {
+            "nome": "UBER",
+            "descricao": ""
+          }
+        ],
+        "formas": [
+          "PIX",
+          "Transferência",
+          "Boleto",
+          "Dinheiro"
+        ],
+        "cartoes": []
+      },
+      "out": {
+        "categorias": [
+          {
+            "nome": "CASA",
+            "descricao": "Geral"
+          },
+          {
+            "nome": "ALIMENTAÇÃO",
+            "descricao": ""
+          },
+          {
+            "nome": "ROUPA",
+            "descricao": ""
+          },
+          {
+            "nome": "CABELO",
+            "descricao": ""
+          },
+          {
+            "nome": "FARRA",
+            "descricao": "Bebidas"
+          },
+          {
+            "nome": "JUROS",
+            "descricao": "Cartões de crédito"
+          },
+          {
+            "nome": "GR OFF ROAD",
+            "descricao": "Custos de produtos"
+          },
+          {
+            "nome": "LAZER",
+            "descricao": "Final de semana e lazer com namorada e amigos"
+          },
+          {
+            "nome": "PEÇAS MOTO + CONTAS MOTO",
+            "descricao": "Gastos de manutenção e peças"
+          },
+          {
+            "nome": "GASOLINA",
+            "descricao": "Custo de trabalho"
+          },
+          {
+            "nome": "REMÉDIO",
+            "descricao": ""
+          },
+          {
+            "nome": "IOF´S",
+            "descricao": "IOF sobre atrasos de cartões de crédito"
+          },
+          {
+            "nome": "INTER",
+            "descricao": "Cartão de crédito"
+          },
+          {
+            "nome": "JOGO",
+            "descricao": "MXBikes, Flight Simulator, time virtual"
+          },
+          {
+            "nome": "CNPJ",
+            "descricao": "PGDAS, parcelamentos, dívidas mensais do CNPJ"
+          },
+          {
+            "nome": "PIX CRÉDITO",
+            "descricao": "PIX feito em cartões de crédito"
+          },
+          {
+            "nome": "SEGUROS",
+            "descricao": "Vida, moto, previdência"
+          },
+          {
+            "nome": "ELETRÔNICOS",
+            "descricao": "Computador, iPhone novo, plotter de recorte da oficina"
+          },
+          {
+            "nome": "INTERNET",
+            "descricao": "VS internet fixo, Vero internet fixo (Itabirito), Vivo móvel, BMI fixo (Belo Horizonte)"
+          },
+          {
+            "nome": "HONDA",
+            "descricao": "Consórcio de uma CRF 250F zero"
+          },
+          {
+            "nome": "CARTÃO CLEIDE",
+            "descricao": "Contas pessoais pagas no cartão da Cleide"
+          },
+          {
+            "nome": "CURSOS E ESTUDOS",
+            "descricao": ""
+          },
+          {
+            "nome": "APPLE",
+            "descricao": "Armazenamento e apps: Spotify, Netflix, CapCut, iCloud, Gemini, Claude"
+          },
+          {
+            "nome": "ACADEMIA",
+            "descricao": "Pagamentos mensais do plano de academia"
+          }
+        ],
+        "formas": [
+          "Crédito",
+          "Débito",
+          "Débito Aut.",
+          "PIX",
+          "Transferência",
+          "Boleto"
+        ],
+        "cartoes": [
+          "-",
+          "CREDICARD",
+          "ITAU PLATINUM",
+          "INTER",
+          "PICPAY"
+        ]
+      }
+    },
+    "cleide": {
+      "nome": "Cleide Nascimento",
+      "curto": "Cleide",
+      "in": {
+        "categorias": [
+          {
+            "nome": "MATERDEI",
+            "descricao": ""
+          },
+          {
+            "nome": "POSTO",
+            "descricao": ""
+          },
+          {
+            "nome": "3D",
+            "descricao": ""
+          },
+          {
+            "nome": "TRÁFEGO DIGITAL",
+            "descricao": ""
+          }
+        ],
+        "formas": [
+          "PIX",
+          "Transferência",
+          "Boleto",
+          "Dinheiro"
+        ],
+        "cartoes": []
+      },
+      "out": {
+        "categorias": [
+          {
+            "nome": "CASA",
+            "descricao": ""
+          },
+          {
+            "nome": "ALIMENTAÇÃO",
+            "descricao": ""
+          },
+          {
+            "nome": "FARRA / LAZER",
+            "descricao": ""
+          },
+          {
+            "nome": "ROUPA",
+            "descricao": ""
+          },
+          {
+            "nome": "CABELO",
+            "descricao": ""
+          }
+        ],
+        "formas": [
+          "Crédito",
+          "Débito",
+          "Débito Aut.",
+          "PIX",
+          "Transferência",
+          "Boleto"
+        ],
+        "cartoes": [
+          "-",
+          "PICPAY",
+          "NUBANK"
+        ]
+      }
+    },
+    "casa": {
+      "nome": "Casa",
+      "curto": "Casa",
+      "in": {
+        "categorias": [],
+        "formas": [
+          "PIX",
+          "Transferência",
+          "Boleto",
+          "Dinheiro"
+        ],
+        "cartoes": []
+      },
+      "out": {
+        "categorias": [
+          {
+            "nome": "ALIMENTAÇÃO",
+            "descricao": ""
+          },
+          {
+            "nome": "INSUMOS CASA",
+            "descricao": ""
+          },
+          {
+            "nome": "LUZ & ÁGUA",
+            "descricao": ""
+          },
+          {
+            "nome": "INTERNET",
+            "descricao": ""
+          },
+          {
+            "nome": "HIGIENE PESSOAL",
+            "descricao": ""
+          },
+          {
+            "nome": "LAZER",
+            "descricao": ""
+          },
+          {
+            "nome": "VIAGENS",
+            "descricao": ""
+          },
+          {
+            "nome": "INVESTIMENTOS",
+            "descricao": ""
+          }
+        ],
+        "formas": [
+          "Crédito",
+          "Débito",
+          "Débito Aut.",
+          "PIX",
+          "Transferência",
+          "Boleto"
+        ],
+        "cartoes": [
+          "-",
+          "PICPAY LUIZ",
+          "PICPAY CLEIDE",
+          "INTER LUIZ",
+          "ITAU PLATINUM LUIZ",
+          "CREDICARD LUIZ",
+          "NUBANK CLEIDE"
+        ]
+      }
+    },
+    "empresa": {
+      "nome": "Sixteen Design",
+      "curto": "Sixteen Design",
+      "in": {
+        "categorias": [
+          {
+            "nome": "R-P (Vendas)",
+            "descricao": ""
+          },
+          {
+            "nome": "R-P (Produtos)",
+            "descricao": ""
+          },
+          {
+            "nome": "R-S (Serviços)",
+            "descricao": ""
+          },
+          {
+            "nome": "R-S (Oficina)",
+            "descricao": ""
+          }
+        ],
+        "formas": [
+          "PIX",
+          "Boleto",
+          "Transferência",
+          "PIX Corp"
+        ],
+        "cartoes": []
+      },
+      "out": {
+        "categorias": [
+          {
+            "nome": "D-RH (Folha)",
+            "descricao": ""
+          },
+          {
+            "nome": "D-MKT (Marketing)",
+            "descricao": ""
+          },
+          {
+            "nome": "D-O (Operacional)",
+            "descricao": ""
+          },
+          {
+            "nome": "D-O (Unicores)",
+            "descricao": "Fornecedor de tintas"
+          },
+          {
+            "nome": "D-O (Materiais oficina)",
+            "descricao": "Materiais e equipamentos em geral"
+          }
+        ],
+        "formas": [
+          "PIX",
+          "Crédito",
+          "Débito",
+          "PIX Corp",
+          "Crédito PJ",
+          "Débito Aut.",
+          "Boleto",
+          "Transferência"
+        ],
+        "cartoes": [
+          "PJ ITAÚ",
+          "-",
+          "CREDICARD",
+          "ITAU PLATINUM",
+          "INTER",
+          "PICPAY"
+        ]
+      }
+    }
+  }
+}

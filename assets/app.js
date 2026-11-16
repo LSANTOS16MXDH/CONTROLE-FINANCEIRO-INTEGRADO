@@ -12,12 +12,7 @@
   const $ = (s, r) => (r || document).querySelector(s);
   const $$ = (s, r) => Array.from((r || document).querySelectorAll(s));
 
-  const SAIDA_FORMAS = ['Crédito', 'Débito', 'Débito Aut.', 'PIX', 'Transferência', 'Boleto'];
-  const ENTRADA_FORMAS = ['PIX', 'Transferência', 'Boleto', 'Dinheiro'];
-  const TIPOS = ['Único', 'Recorrente', 'Parcelado'];
-  const EMP_ENTRADA = ['PIX', 'Boleto', 'Transferência', 'PIX Corp'];
-  const EMP_SAIDA = ['PIX', 'Crédito', 'Débito', 'PIX Corp', 'Crédito PJ', 'Débito Aut.', 'Boleto', 'Transferência'];
-  const CARTOES_CASA = ['PICPAY LUIZ', 'PICPAY CLEIDE', 'INTER LUIZ', 'ITAU PLATINUM LUIZ', 'CREDICARD LUIZ', 'NUBANK CLEIDE'];
+  const { TIPOS } = F;
 
   const ui = {
     month: new Date().getMonth(), year: new Date().getFullYear(), mode: 'real', card: {}, catIn: {}, catOut: {},
@@ -35,7 +30,8 @@
     'empresa-lancamentos': { lanc: 'empresa', perfil: 'empresa', title: 'Lançamentos da Sixteen Design' },
     plano: { plano: true, title: 'Plano de contas' },
     relatorios: { rel: true, title: 'Relatórios' },
-    conta: { conta: true, title: 'Minha conta' }
+    conta: { conta: true, title: 'Minha conta' },
+    agentes: { agentes: true, title: 'Agentes inteligentes' }
   };
   const PERFIS = [['luiz', 'Luiz', 'luiz', 'luiz-lancamentos'], ['cleide', 'Cleide', 'cleide', 'cleide-lancamentos'], ['casal', 'Casal', 'casal', 'casa-lancamentos'], ['empresa', 'Sixteen Design', 'empresa', 'empresa-lancamentos']];
 
@@ -244,15 +240,14 @@
   /* ---------- Lançamentos ---------- */
   function formHTML(p, kind) {
     const d = PROFILES[p];
-    const emp = p === 'empresa', casa = p === 'casa', out = kind === 'out';
+    const out = kind === 'out';
     const id = `f-${p}-${kind}`;
     const v = ui.drafts[id] || F.formPadrao(p, kind);
     const desc = (out ? d.descOut : d.descIn) || {};
     const cats = (out ? d.catOut : d.catIn).map(c => [c, desc[c] ? `${c} — ${desc[c]}` : c]);
-    const formas = emp ? (out ? EMP_SAIDA : EMP_ENTRADA) : (out ? SAIDA_FORMAS : ENTRADA_FORMAS);
+    const { formas, cartoes: list } = F.opcoes(p, kind);
     let cardField = '';
     if (out) {
-      const list = emp ? ['PJ ITAÚ', '-'].concat(d.cartoes) : casa ? ['-'].concat(CARTOES_CASA) : ['-'].concat(d.cartoes);
       cardField = `<div class="fld"><label for="${id}-card">Cartão/conta</label><select id="${id}-card" name="card">${opts(list, v.card)}</select></div>`;
     }
     return `<form class="lform ${out ? 'is-out' : 'is-in'}" id="${id}" data-p="${p}" data-kind="${kind}" novalidate>
@@ -301,7 +296,7 @@
     const body = rows.map(r => {
       const cell = c => {
         switch (c) {
-          case 'cat': return `<td class="strong">${esc(r.cat)}</td>`;
+          case 'cat': return `<td class="strong">${esc(r.cat)}${r.origem === 'whatsapp' ? ' <span class="tag-wa" title="Lançado pelo WhatsApp">WhatsApp</span>' : ''}</td>`;
           case 'obs': return `<td>${esc(r.obs)}</td>`;
           case 'val': return `<td class="num">${brl2(r.val)}</td>`;
           case 'forma': return `<td>${esc(r.forma)}</td>`;
@@ -627,7 +622,7 @@
 
     if (r.dash || r.emp) ui.lastProfile = h;
     if (r.lanc) ui.lastLanc = h;
-    setNav(r.lanc ? 'lancamentos' : r.dash || r.emp ? 'dashboards' : r.plano ? 'plano' : r.conta ? '' : 'relatorios');
+    setNav(r.lanc ? 'lancamentos' : r.dash || r.emp ? 'dashboards' : r.plano ? 'plano' : r.agentes ? 'agentes' : r.conta ? '' : 'relatorios');
 
     const pnav = $('.profilenav');
     pnav.hidden = !r.perfil;
@@ -644,9 +639,13 @@
     else if (r.plano) renderPlano();
     else if (r.rel) renderRelatorios();
     else if (r.conta) renderConta();
+    else if (r.agentes) AG.render();
 
     if (scroll) window.scrollTo(0, 0);
   }
+
+  /* ---------- Agentes ---------- */
+  const AG = window.AGENTES({ A, F, esc, pageHead, footer, toast: (m, a) => toast(m, a), route: () => route(), $ });
 
   /* ---------- Eventos ---------- */
   const view = $('#view');
@@ -703,8 +702,12 @@
   view.addEventListener('submit', e => {
     if (e.target.id === 'form-convite') { e.preventDefault(); enviarPortao(e.target, () => A.aceitarConvite($('#campo-convite').value)); return; }
     if (e.target.id === 'form-espaco') { e.preventDefault(); enviarPortao(e.target, () => A.criarEspaco($('#campo-espaco').value)); return; }
-    if (e.target.matches('form.lform')) { e.preventDefault(); submitForm(e.target); }
+    if (e.target.matches('form.lform')) { e.preventDefault(); submitForm(e.target); return; }
+    if (AG.submit(e.target)) e.preventDefault();
   });
+
+  view.addEventListener('input', e => AG.input(e.target));
+  view.addEventListener('keydown', e => AG.keydown(e));
 
   view.addEventListener('focusout', e => {
     if (e.target.name === 'val' && e.target.closest('form.lform')) {
@@ -717,6 +720,7 @@
     const b = e.target.closest('button');
     if (!b) return;
     if (b.dataset.login) { b.disabled = true; A.entrar(b.dataset.login); return; }
+    if (AG.click(b)) return;
     if ('sair' in b.dataset) { history.replaceState(null, '', location.pathname); A.sair(); return; }
     if ('tentar' in b.dataset) { A.tentarDeNovo(); return; }
     if ('copiar' in b.dataset) {
@@ -759,7 +763,7 @@
   /* Mudança de sessão: ao concluir o login, segue para a tela que a pessoa pediu. */
   window.addEventListener('cfi:auth', () => {
     if (A.estado === 'pronto') { const d = A.pegarDestino(); if (d && '#' + d !== location.hash) { location.hash = d; return; } }
-    if (A.estado === 'anonimo') { ui.drafts = {}; window.dispatchEvent(new Event('cfi:landing')); }
+    if (A.estado === 'anonimo') { ui.drafts = {}; AG.limpar(); window.dispatchEvent(new Event('cfi:landing')); }
     route();
   });
   window.addEventListener('cfi:aviso', e => toast(e.detail));
@@ -782,6 +786,7 @@
     if (novo) { novo.focus(); if (cursor) novo.setSelectionRange(cursor[0], cursor[1]); }
   };
   window.addEventListener('cfi:remoto', redesenhar);
+  window.addEventListener('cfi:agentes', () => { AG.atualizou(); if (location.hash === '#agentes' && A.estado === 'pronto') redesenhar(); });
 
   route(true);
 })();
