@@ -8,6 +8,7 @@ import { resumir, executarFerramenta, type Lanc } from '../_shared/resumo.ts';
 import { criarHandler as whatsapp } from '../whatsapp/logica.ts';
 import { criarHandler as cfo } from '../cfo/logica.ts';
 import { hojeSP } from '../_shared/comum.ts';
+import { numeroDeEnvio } from '../whatsapp/meta.ts';
 
 const SEGREDO = 'segredo-de-teste';
 const AGORA = new Date('2026-11-16T15:00:00Z'); // 12h em Brasília
@@ -265,4 +266,11 @@ Deno.test('gemini: sem chave configurada falha sem tentar a rede', async () => {
   const { gerarJson } = await import('../_shared/gemini.ts');
   Deno.env.delete('GEMINI_API_KEY');
   await assertRejects(() => gerarJson({ sistema: 's', partes: [{ text: 'x' }], esquema: {} }), Error, 'GEMINI_API_KEY');
+});
+
+Deno.test('celular do Brasil sem o nono dígito recebe o 9 no envio', () => {
+  assertEquals(numeroDeEnvio('553188887777'), '5531988887777');
+  assertEquals(numeroDeEnvio('5531988887777'), '5531988887777');
+  assertEquals(numeroDeEnvio('553133334444'), '553133334444'); // fixo
+  assertEquals(numeroDeEnvio('15551677598'), '15551677598');
 });

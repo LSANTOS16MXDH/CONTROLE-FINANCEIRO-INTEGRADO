@@ -23,11 +23,20 @@ export async function baixarMidia(mediaId: string): Promise<{ bytes: Uint8Array;
 }
 
 /** Responde em texto. Dentro de 24 horas da mensagem da pessoa, a Meta não cobra. */
+/**
+ * A Meta manda celulares do Brasil sem o nono dígito (55 + DDD + 8 dígitos),
+ * mas a lista de destinatários e o envio esperam o número com o 9.
+ */
+export function numeroDeEnvio(para: string): string {
+  const m = para.match(/^55(\d{2})([6-9]\d{7})$/);
+  return m ? `55${m[1]}9${m[2]}` : para;
+}
+
 export async function enviarTexto(phoneNumberId: string, para: string, texto: string): Promise<void> {
   const r = await fetch(`${GRAPH}/${encodeURIComponent(phoneNumberId)}/messages`, {
     method: 'POST',
     headers: { Authorization: `Bearer ${token()}`, 'Content-Type': 'application/json' },
-    body: JSON.stringify({ messaging_product: 'whatsapp', recipient_type: 'individual', to: para, type: 'text', text: { preview_url: false, body: texto.slice(0, 4000) } }),
+    body: JSON.stringify({ messaging_product: 'whatsapp', recipient_type: 'individual', to: numeroDeEnvio(para), type: 'text', text: { preview_url: false, body: texto.slice(0, 4000) } }),
     signal: AbortSignal.timeout(20000)
   });
   if (!r.ok) throw new Error(`envio ${r.status}: ${(await r.text()).slice(0, 300)}`);

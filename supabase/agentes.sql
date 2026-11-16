@@ -76,6 +76,13 @@ revoke all on public.whatsapp_vinculos, public.whatsapp_codigos,
 grant select, delete on public.whatsapp_vinculos to authenticated;
 grant select on public.cfo_mensagens to authenticated;
 
+-- As funções dos agentes usam a chave de servidor (service_role). Projetos
+-- novos do Supabase não dão acesso às tabelas a esse papel por padrão.
+grant select, insert, update, delete on public.whatsapp_vinculos, public.whatsapp_codigos,
+      public.whatsapp_mensagens, public.cfo_mensagens to service_role;
+grant select, insert, update on public.entries, public.workspace_members to service_role;
+grant select on public.workspaces, public.targets to service_role;
+
 -- ---------- Funções chamadas pelo site ----------
 
 -- Gera o código de vínculo: 8 caracteres aleatórios, válido por 15 minutos.
