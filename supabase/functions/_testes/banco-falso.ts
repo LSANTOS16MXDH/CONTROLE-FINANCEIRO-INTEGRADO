@@ -43,6 +43,7 @@ class Consulta {
   is(k: string, v: any) { this.filtros.push(r => (r[k] ?? null) === v); return this; }
   gt(k: string, v: any) { this.filtros.push(r => r[k] > v); return this; }
   gte(k: string, v: any) { this.filtros.push(r => r[k] >= v); return this; }
+  lte(k: string, v: any) { this.filtros.push(r => r[k] <= v); return this; }
   in(k: string, v: any[]) { this.filtros.push(r => v.includes(r[k])); return this; }
   or(expr: string) {
     const conds = expr.split(',').map(c => { const [k, , ...v] = c.split('.'); return [k, v.join('.')]; });

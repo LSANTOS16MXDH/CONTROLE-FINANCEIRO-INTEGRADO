@@ -22,7 +22,6 @@ export async function baixarMidia(mediaId: string): Promise<{ bytes: Uint8Array;
   return { bytes, mime: String(mime_type || arq.headers.get('content-type') || '') };
 }
 
-/** Responde em texto. Dentro de 24 horas da mensagem da pessoa, a Meta não cobra. */
 /**
  * A Meta manda celulares do Brasil sem o nono dígito (55 + DDD + 8 dígitos),
  * mas a lista de destinatários e o envio esperam o número com o 9.
@@ -32,14 +31,33 @@ export function numeroDeEnvio(para: string): string {
   return m ? `55${m[1]}9${m[2]}` : para;
 }
 
-export async function enviarTexto(phoneNumberId: string, para: string, texto: string): Promise<void> {
+/** Envia texto. Com "citar", a resposta aparece ligada à mensagem da pessoa. */
+export async function enviarTexto(phoneNumberId: string, para: string, texto: string, citar?: string): Promise<void> {
+  const corpo: Record<string, unknown> = {
+    messaging_product: 'whatsapp', recipient_type: 'individual', to: numeroDeEnvio(para),
+    type: 'text', text: { preview_url: false, body: texto.slice(0, 4000) }
+  };
+  if (citar) corpo.context = { message_id: citar };
   const r = await fetch(`${GRAPH}/${encodeURIComponent(phoneNumberId)}/messages`, {
     method: 'POST',
     headers: { Authorization: `Bearer ${token()}`, 'Content-Type': 'application/json' },
-    body: JSON.stringify({ messaging_product: 'whatsapp', recipient_type: 'individual', to: numeroDeEnvio(para), type: 'text', text: { preview_url: false, body: texto.slice(0, 4000) } }),
+    body: JSON.stringify(corpo),
     signal: AbortSignal.timeout(20000)
   });
   if (!r.ok) throw new Error(`envio ${r.status}: ${(await r.text()).slice(0, 300)}`);
+}
+
+/**
+ * Marca a mensagem como lida (os dois tiques azuis) e mostra "digitando…"
+ * até a resposta sair ou por até 25 segundos.
+ */
+export async function marcarLido(phoneNumberId: string, messageId: string): Promise<void> {
+  await fetch(`${GRAPH}/${encodeURIComponent(phoneNumberId)}/messages`, {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${token()}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ messaging_product: 'whatsapp', status: 'read', message_id: messageId, typing_indicator: { type: 'text' } }),
+    signal: AbortSignal.timeout(10000)
+  });
 }
 
 /** Confere o cabeçalho X-Hub-Signature-256: HMAC-SHA256 do corpo com o App Secret. */

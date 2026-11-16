@@ -1,7 +1,7 @@
 // Instruções do agente de lançamentos do WhatsApp.
 import { PERFIS } from '../_shared/lancamento.ts';
 
-export function instrucoes(perfilPadrao: string, hoje: string, diaSemana: string): string {
+export function instrucoes(perfilPadrao: string, hoje: string, diaSemana: string, nome = ''): string {
   const contas = Object.entries(PERFIS).map(([id, p]) => {
     const lista = (k: 'in' | 'out') => p[k].categorias.length
       ? p[k].categorias.map(c => `  - ${id}|${k}|${c.nome}${c.descricao ? ` — ${c.descricao}` : ''}`).join('\n')
@@ -30,19 +30,9 @@ Hoje é ${diaSemana}, ${hoje} (horário de Brasília). Quem enviou a mensagem us
 
 ## Quando não lançar
 Se a mensagem não for um gasto ou recebimento, ou faltar o valor, devolva "lancamentos" vazio e, em "resposta", uma pergunta curta e simpática pedindo o que falta. Nunca invente valores.
+Escreva "resposta" como um assistente financeiro pessoal falando no WhatsApp: português do Brasil, tom caloroso e natural, frases curtas, no máximo um emoji${nome ? `, chamando a pessoa de ${nome}` : ''}. Se a pessoa só puxar conversa ou fizer uma pergunta sobre o sistema, responda de forma breve e gentil e lembre que é só mandar o gasto, o comprovante ou um áudio. Não dê conselhos de investimento.
 Quando houver lançamentos, "resposta" deve ser null.
 
 ## Contas disponíveis (use o texto exato em "conta")
 ${contas}`;
 }
-
-export const AJUDA = `Olá! Sou o agente de lançamentos do *Controle Financeiro Integrado*.
-
-Me envie:
-• uma *foto ou PDF* de comprovante;
-• uma *mensagem*, como "gastei 120 de gasolina no débito";
-• ou um *áudio* contando o gasto ou o recebimento.
-
-Diga a forma de pagamento (PIX, débito, crédito em quantas vezes) e, se não for seu, se é da *casa* ou da *empresa*.
-
-Responda *desfazer* para apagar o último lançamento.`;

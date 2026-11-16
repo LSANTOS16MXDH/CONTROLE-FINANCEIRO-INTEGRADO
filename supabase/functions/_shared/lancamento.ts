@@ -112,8 +112,8 @@ export function montarLinhas(e: Extraido, hoje: string, novoId: () => string = (
   return linhas;
 }
 
-const brl = (v: number) => 'R$ ' + v.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-const dataBR = (iso: string) => iso.split('-').reverse().join('/');
+export const brl = (v: number) => 'R$ ' + v.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+export const dataBR = (iso: string) => iso.split('-').reverse().join('/');
 
 /** Resumo de um lançamento para a resposta no WhatsApp. */
 export function descrever(linhas: Linha[]): string {

@@ -106,7 +106,8 @@ Sempre que mudar as contas, categorias, formas ou cartões em `assets/data.js`, 
    - **Verify token:** o mesmo `META_VERIFY_TOKEN`
    
    Depois, em **Webhook fields**, assine o campo **messages**.
-7. Em [`assets/config.js`](assets/config.js), preencha `WHATSAPP_NUMERO` com o número do agente (só dígitos, com 55), para o site mostrar o botão **Abrir no WhatsApp**.
+7. **Use um número brasileiro.** A Meta restringe mensagens de números de outros países para celulares do Brasil (erro 130497). Com o número de teste americano, o agente recebe e lança, mas as respostas não chegam. Em **WhatsApp › API Setup › Add phone number**, cadastre um número do Brasil que não esteja em uso no aplicativo do WhatsApp e troque o `META_PHONE_NUMBER_ID` pelo dele.
+8. Em [`assets/config.js`](assets/config.js), preencha `WHATSAPP_NUMERO` com o número do agente (só dígitos, com 55), para o site mostrar o botão **Abrir no WhatsApp**.
 
 ### 7.4 Vincular os números
 

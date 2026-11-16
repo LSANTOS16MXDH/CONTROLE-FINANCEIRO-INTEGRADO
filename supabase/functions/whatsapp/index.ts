@@ -2,7 +2,7 @@
 import { criarHandler } from './logica.ts';
 import { clienteServico } from '../_shared/comum.ts';
 import { gerarJson } from '../_shared/gemini.ts';
-import { baixarMidia, enviarTexto } from './meta.ts';
+import { baixarMidia, enviarTexto, marcarLido } from './meta.ts';
 
 declare const EdgeRuntime: { waitUntil(p: Promise<unknown>): void };
 
@@ -14,5 +14,6 @@ Deno.serve(criarHandler({
   gerarJson,
   baixarMidia,
   enviarTexto,
+  marcarLido,
   waitUntil: p => EdgeRuntime.waitUntil(p)
 }));

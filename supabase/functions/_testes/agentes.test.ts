@@ -9,6 +9,7 @@ import { criarHandler as whatsapp } from '../whatsapp/logica.ts';
 import { criarHandler as cfo } from '../cfo/logica.ts';
 import { hojeSP } from '../_shared/comum.ts';
 import { numeroDeEnvio } from '../whatsapp/meta.ts';
+import * as R from '../whatsapp/respostas.ts';
 
 const SEGREDO = 'segredo-de-teste';
 const AGORA = new Date('2026-11-16T15:00:00Z'); // 12h em Brasília
@@ -68,7 +69,8 @@ Deno.test('data de hoje em Brasília', () => {
 function montarWhats(opts: { extracao?: any; erroGemini?: Error } = {}) {
   const db = new BancoFalso();
   db.relogio = () => AGORA;
-  const enviados: { para: string; texto: string }[] = [];
+  const enviados: { para: string; texto: string; citar?: string }[] = [];
+  const lidos: string[] = [];
   const chamadasGemini: any[] = [];
   const tarefas: Promise<unknown>[] = [];
   const h = whatsapp({
@@ -79,7 +81,8 @@ function montarWhats(opts: { extracao?: any; erroGemini?: Error } = {}) {
       return { dados: opts.extracao ?? { lancamentos: [], resposta: 'Qual o valor?' }, modelo: 'teste' };
     },
     baixarMidia: async (id) => ({ bytes: new TextEncoder().encode('midia-' + id), mime: id.startsWith('aud') ? 'audio/ogg; codecs=opus' : 'image/jpeg' }),
-    enviarTexto: async (_pid, para, texto) => { enviados.push({ para, texto }); },
+    enviarTexto: async (_pid, para, texto, citar) => { enviados.push({ para, texto, citar }); },
+    marcarLido: async (_pid, id) => { lidos.push(id); },
     agora: () => AGORA,
     waitUntil: p => { tarefas.push(p); },
     log: () => {}
@@ -91,7 +94,7 @@ function montarWhats(opts: { extracao?: any; erroGemini?: Error } = {}) {
     return r;
   };
   const vincular = () => db.tabela('whatsapp_vinculos').push({ phone: '5531999990000', workspace_id: WS, user_id: LUIZ, profile: 'luiz' });
-  return { db, h, enviar, enviados, chamadasGemini, vincular };
+  return { db, h, enviar, enviados, chamadasGemini, vincular, lidos };
 }
 const texto = (id: string, body: string, from = '5531999990000') => ({ from, id, type: 'text', text: { body } });
 
@@ -110,7 +113,7 @@ Deno.test('número sem vínculo recebe a instrução só uma vez; outro número 
   await enviar([texto('m1', 'gastei 50 no mercado')]);
   await enviar([texto('m2', 'oi?')]);
   assertEquals(enviados.length, 1);
-  assertMatch(enviados[0].texto, /não está vinculado/);
+  assertMatch(enviados[0].texto, /não conheço este número/);
   await enviar([texto('m3', 'gastei 50')], 'OUTRO');
   assertEquals(enviados.length, 1);
   assertEquals(chamadasGemini.length, 0);
@@ -121,9 +124,9 @@ Deno.test('vínculo por código: válido, inválido e bloqueio após 5 erros', a
   db.tabela('whatsapp_codigos').push({ codigo: 'AB12CD34', workspace_id: WS, user_id: CLEIDE, profile: 'cleide', expires_at: '2026-11-16T15:10:00Z' });
   db.tabela('whatsapp_codigos').push({ codigo: 'FFFF0000', workspace_id: WS, user_id: LUIZ, profile: 'luiz', expires_at: '2026-11-16T14:00:00Z' });
   await enviar([texto('v1', 'FFFF0000', '5531988880000')]);
-  assertMatch(enviados.at(-1)!.texto, /inválido ou expirado/);
+  assertMatch(enviados.at(-1)!.texto, /código não funcionou/);
   await enviar([texto('v2', 'vincular ab12cd34', '5531988880000')]);
-  assertMatch(enviados.at(-1)!.texto, /vinculado ao perfil \*Cleide Nascimento\*/);
+  assertMatch(enviados.at(-1)!.texto, /^Oi, Cleide! 👋[\s\S]*perfil \*Cleide Nascimento\*/);
   assertEquals(db.tabela('whatsapp_vinculos'), [{ phone: '5531988880000', workspace_id: WS, user_id: CLEIDE, profile: 'cleide' } as any].map(v => ({ ...v, id: db.tabela('whatsapp_vinculos')[0].id, created_at: db.tabela('whatsapp_vinculos')[0].created_at, deleted_at: null, status: 'recebida', entry_ids: [] })));
   assertEquals(db.tabela('whatsapp_codigos').length, 1); // o usado foi apagado
   for (let i = 0; i < 6; i++) await enviar([texto('x' + i, '0000000' + i, '5531977770000')]);
@@ -143,36 +146,40 @@ Deno.test('texto vira lançamento, reenvio da Meta não duplica e desfazer apaga
   assertEquals(chamadasGemini.length, 1);
   assertMatch(chamadasGemini[0].sistema, /perfil "luiz"/);
   assertMatch(chamadasGemini[0].partes.at(-1).text, /gasolina/);
-  assertMatch(enviados.at(-1)!.texto, /✅ Lançado:[\s\S]*GASOLINA[\s\S]*desfazer/);
+  assertMatch(enviados.at(-1)!.texto, /Luiz[\s\S]*💸 \*GASOLINA\* — Posto Shell\nR\$\s?120,00 no débito\n📅 pago hoje · Luiz › Saídas[\s\S]*desfazer/);
+  assertEquals(enviados.at(-1)!.citar, 'g1'); // a resposta cita a mensagem
+  assert(!/📊/.test(enviados.at(-1)!.texto)); // primeiro do mês: sem total
   await enviar([texto('g2', 'Desfazer')]);
   assertEquals(e[0].deleted_at, AGORA.toISOString());
-  assertMatch(enviados.at(-1)!.texto, /Desfeito: 1/);
+  assertMatch(enviados.at(-1)!.texto, /Apaguei \*GASOLINA\* de R\$\s?120,00/);
   await enviar([texto('g3', 'desfazer')]);
-  assertMatch(enviados.at(-1)!.texto, /Não há lançamento/);
+  assertMatch(enviados.at(-1)!.texto, /Não encontrei nenhum lançamento/);
 });
 
 Deno.test('áudio e foto vão ao Gemini como dados; sem lançamento devolve a pergunta', async () => {
-  const { enviar, enviados, chamadasGemini, vincular } = montarWhats({ extracao: { lancamentos: [], resposta: 'Foi no crédito ou no débito?' } });
+  const { enviar, enviados, chamadasGemini, vincular, lidos } = montarWhats({ extracao: { lancamentos: [], resposta: 'Foi no crédito ou no débito?' } });
   vincular();
   await enviar([{ from: '5531999990000', id: 'a1', type: 'audio', audio: { id: 'aud-9', mime_type: 'audio/ogg; codecs=opus', voice: true } }]);
   const partes = chamadasGemini[0].partes;
   assertEquals(partes[0].inlineData.mimeType, 'audio/ogg');
   assertEquals(atob(partes[0].inlineData.data), 'midia-aud-9');
   assertEquals(enviados.at(-1)!.texto, 'Foi no crédito ou no débito?');
+  assertMatch(enviados.at(-2)!.texto, /áudio/); // avisa que recebeu antes de ler
+  assertEquals(lidos, ['a1']);
   await enviar([{ from: '5531999990000', id: 'i1', type: 'image', image: { id: 'img-1', mime_type: 'image/jpeg', caption: 'mercado no pix' } }]);
   assertEquals(chamadasGemini[1].partes[0].inlineData.mimeType, 'image/jpeg');
   assertMatch(chamadasGemini[1].partes.at(-1).text, /mercado no pix/);
   await enviar([{ from: '5531999990000', id: 's1', type: 'sticker', sticker: { id: 'st' } }]);
-  assertMatch(enviados.at(-1)!.texto, /Consigo ler/);
+  assertMatch(enviados.at(-1)!.texto, /não consigo ler/);
   await enviar([{ from: '5531999990000', id: 'r1', type: 'reaction', reaction: { emoji: '👍' } }]);
-  assertEquals(enviados.length, 3);
+  assertEquals(enviados.length, 5);
 });
 
 Deno.test('falha do Gemini avisa a pessoa e marca erro; item inválido é informado', async () => {
   const a = montarWhats({ erroGemini: new Error('503') });
   a.vincular();
   await a.enviar([texto('f1', 'gastei 30 no pix')]);
-  assertMatch(a.enviados.at(-1)!.texto, /Não consegui registrar/);
+  assertMatch(a.enviados.at(-1)!.texto, /^Ops, Luiz, tive um probleminha/);
   assertEquals(a.db.tabela('whatsapp_mensagens')[0].status, 'erro');
 
   const b = montarWhats({ extracao: { resposta: null, lancamentos: [
@@ -182,7 +189,7 @@ Deno.test('falha do Gemini avisa a pessoa e marca erro; item inválido é inform
   b.vincular();
   await b.enviar([texto('f2', 'dois gastos')]);
   assertEquals(b.db.tabela('entries').length, 1);
-  assertMatch(b.enviados.at(-1)!.texto, /1 item\(ns\) não lançado/);
+  assertMatch(b.enviados.at(-1)!.texto, /Um item eu não consegui lançar: Não identifiquei o valor/);
 });
 
 // ---------- CFO ----------
@@ -273,4 +280,34 @@ Deno.test('celular do Brasil sem o nono dígito recebe o 9 no envio', () => {
   assertEquals(numeroDeEnvio('5531988887777'), '5531988887777');
   assertEquals(numeroDeEnvio('553133334444'), '553133334444'); // fixo
   assertEquals(numeroDeEnvio('15551677598'), '15551677598');
+});
+
+Deno.test('WhatsApp: nome do site, total do mês, parcelado e agradecimento', async () => {
+  const extracao = { resposta: null, lancamentos: [{ conta: 'luiz|out|GASOLINA', descricao: 'Shell', valor_parcela: 100, parcelas: 3, forma: 'Crédito', cartao: 'INTER', recorrente: false, data: '2026-11-16', pago: true }] };
+  const { db, enviar, enviados, vincular } = montarWhats({ extracao });
+  vincular();
+  db.tabela('workspace_members').push({ workspace_id: WS, user_id: LUIZ, display_name: 'luiz filipe', email: 'l@x.test' });
+  db.tabela('entries').push({ id: 'velho', workspace_id: WS, profile: 'luiz', kind: 'out', cat: 'GASOLINA', val: '50.00', venc: '2026-11-03', deleted_at: null });
+  await enviar([texto('p1', 'abasteci 300 em 3x no inter')]);
+  const t = enviados.at(-1)!.texto;
+  assertMatch(t, /Luiz/);
+  assertMatch(t, /R\$\s?300,00 em 3x de R\$\s?100,00 no crédito · INTER/);
+  assertMatch(t, /1ª parcela hoje, última em 16\/01\/2027/);
+  assertMatch(t, /📊 Com esse, \*GASOLINA\* soma R\$\s?150,00 em novembro \(2 lançamentos\)/);
+  await enviar([texto('p2', 'valeu!')]);
+  assertMatch(enviados.at(-1)!.texto, /Luiz/);
+  assertEquals(db.tabela('entries').length, 4);
+});
+
+Deno.test('respostas: datas relativas e variação estável', () => {
+  assertEquals(R.quando('2026-11-16', '2026-11-16'), 'hoje');
+  assertEquals(R.quando('2026-11-15', '2026-11-16'), 'ontem');
+  assertEquals(R.quando('2026-11-17', '2026-11-16'), 'amanhã');
+  assertEquals(R.quando('2026-11-20', '2026-11-16'), '20/11');
+  assertEquals(R.quando('2027-01-05', '2026-11-16'), '05/01/2027');
+  assertEquals(R.variar(['a', 'b', 'c'], 'x1'), R.variar(['a', 'b', 'c'], 'x1'));
+  assertEquals(R.primeiroNome('CLEIDE nascimento', 'X'), 'Cleide');
+  assertEquals(R.primeiroNome('', 'Luiz'), 'Luiz');
+  const conta = R.bloco([{ id: '1', profile: 'casa', kind: 'out', cat: 'ENERGIA', obs: 'Cemig', val: 210.5, forma: 'Boleto', tipo: 'Recorrente', card: '-', parc: '1/1', venc: '2026-11-25', pag: null }], '2026-11-16');
+  assertMatch(conta, /⏰ vence 25\/11 — deixei como pendente · Casa › Saídas · todo mês/);
 });
