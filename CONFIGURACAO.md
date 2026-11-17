@@ -67,11 +67,11 @@ Uma mesma pessoa que entrar com Google e depois com Apple pode ser tratada como 
 
 Os dois agentes usam o **Google Gemini** (Google AI Studio) e rodam em funções do Supabase (Edge Functions), que ficam em `supabase/functions/`. As chaves ficam só nos segredos do Supabase, nunca no código.
 
-> **Privacidade:** no plano gratuito da API do Gemini, o Google pode usar o conteúdo enviado (comprovantes, áudios e números) para melhorar os produtos dele, e revisores humanos podem ler esse conteúdo. Para evitar isso, ative o faturamento no projeto do Google Cloud ligado à chave: o plano pago não usa os dados para isso. O código não muda.
+> **Privacidade:** no plano gratuito da API do Gemini, o Google pode usar o conteúdo enviado ao assistente (comprovantes, áudios e mensagens) para melhorar os produtos dele, e revisores humanos podem ler esse conteúdo. Para evitar isso, ative o faturamento no projeto do Google Cloud ligado à chave: o plano pago não usa os dados para isso. O código não muda.
 
 ### 7.1 Banco de dados
 
-No **SQL Editor** do Supabase, cole todo o conteúdo de [`supabase/agentes.sql`](supabase/agentes.sql) e clique em **Run**. Até lá, a tela **Agentes** do site mostra um aviso, e o resto do site funciona normalmente.
+No **SQL Editor** do Supabase, rode todo o conteúdo de [`supabase/agentes.sql`](supabase/agentes.sql) e, depois, o de [`supabase/whatsapp-conexao.sql`](supabase/whatsapp-conexao.sql). Até lá, a tela **Agentes** do site mostra um aviso, e o resto do site funciona normalmente.
 
 ### 7.2 Publicar as funções
 
@@ -83,41 +83,73 @@ npx supabase@2.122.0 link --project-ref hrkslzykntlfepclclcu
 npx supabase@2.122.0 secrets set GEMINI_API_KEY=SUA_CHAVE_DO_AI_STUDIO
 npx supabase@2.122.0 functions deploy cfo --use-api
 npx supabase@2.122.0 functions deploy whatsapp --use-api
+npx supabase@2.122.0 functions deploy whatsapp-conexao --use-api
 ```
 
 Com isso, o **CFO** já funciona na tela **Agentes**. Os modelos podem ser trocados pelos segredos `GEMINI_MODELO` (padrão `gemini-3.8-flash`) e `GEMINI_MODELO_RESERVA` (padrão `gemini-3.5-flash-lite`, usado quando o principal está sobrecarregado ou sem cota).
 
 Sempre que mudar as contas, categorias, formas ou cartões em `assets/data.js`, rode `node scripts/gerar-perfis.mjs` e publique as funções de novo.
 
-### 7.3 Ligar o WhatsApp (Meta)
+### 7.3 Servidor do WhatsApp (Evolution API), feito uma única vez
 
-1. Em [developers.facebook.com](https://developers.facebook.com/apps), crie um app do tipo **Business** e adicione o produto **WhatsApp**.
-2. Em **WhatsApp › API Setup**, anote o **Phone number ID** do número de teste e adicione os números de vocês dois em **To** (o número de teste só conversa com até 5 números cadastrados).
-3. Gere um token permanente: em [business.facebook.com](https://business.facebook.com/settings/system-users), crie um **usuário do sistema**, dê a ele acesso ao app e gere um token com as permissões `whatsapp_business_messaging` e `whatsapp_business_management`. O token temporário da tela de teste expira em 24 horas.
-4. Em **App settings › Basic**, copie o **App Secret**.
-5. Grave os segredos (troque os valores; o `META_VERIFY_TOKEN` é uma senha que você inventa):
+O WhatsApp de cada pessoa fica conectado como **aparelho conectado**, igual ao WhatsApp Web, por um servidor da [Evolution API](https://github.com/evolution-foundation/evolution-api) (código aberto). Esse servidor precisa ficar ligado o tempo todo. A opção gratuita é a **Oracle Cloud Always Free**.
+
+> **Antes de usar:** a Evolution API não é oficial do WhatsApp. O WhatsApp proíbe clientes não oficiais e pode bloquear números que usam esse tipo de conexão. O risco é menor com pouco uso (a pessoa escrevendo para si mesma), mas existe. Para vender o sistema, o caminho sem esse risco é a API oficial da Meta.
+
+1. **Crie a conta** em [oracle.com/cloud/free](https://www.oracle.com/cloud/free/). A Oracle pede um cartão só para confirmar a identidade e não cobra nada nos recursos *Always Free*. Escolha a região **Brazil East (São Paulo)**.
+2. **Crie a máquina:** em **Compute › Instances › Create instance**:
+   - **Image:** Canonical Ubuntu 24.04.
+   - **Shape:** Ampere **VM.Standard.A1.Flex** com 1 OCPU e 6 GB de memória (gratuito). Se aparecer *Out of capacity*, tente mais tarde ou use a **VM.Standard.E2.1.Micro**, também gratuita.
+   - **SSH keys:** deixe **Generate a key pair** e baixe a chave privada.
+   - Clique em **Create** e anote o **Public IP address**.
+3. **Abra as portas 80 e 443:** na página da máquina, clique na **Subnet**, depois na **Default Security List** e em **Add Ingress Rules**:
+   - **Source CIDR:** `0.0.0.0/0`
+   - **Destination port range:** `80,443`
+4. **Entre na máquina** pelo terminal do Windows (PowerShell), trocando o caminho da chave e o IP:
 
    ```bash
-   npx supabase@2.122.0 secrets set META_ACCESS_TOKEN=... META_APP_SECRET=... META_PHONE_NUMBER_ID=... META_VERIFY_TOKEN=uma-senha-longa-qualquer
+   ssh -i C:\caminho\da\chave.key ubuntu@IP_DA_MAQUINA
    ```
 
-6. Em **WhatsApp › Configuration › Webhook**, informe:
-   - **Callback URL:** `https://hrkslzykntlfepclclcu.supabase.co/functions/v1/whatsapp`
-   - **Verify token:** o mesmo `META_VERIFY_TOKEN`
-   
-   Depois, em **Webhook fields**, assine o campo **messages**.
-7. **Use um número brasileiro.** A Meta restringe mensagens de números de outros países para celulares do Brasil (erro 130497). Com o número de teste americano, o agente recebe e lança, mas as respostas não chegam. Em **WhatsApp › API Setup › Add phone number**, cadastre um número do Brasil que não esteja em uso no aplicativo do WhatsApp e troque o `META_PHONE_NUMBER_ID` pelo dele.
-8. Em [`assets/config.js`](assets/config.js), preencha `WHATSAPP_NUMERO` com o número do agente (só dígitos, com 55), para o site mostrar o botão **Abrir no WhatsApp**.
+5. **Instale o servidor** com estes dois comandos, dentro da máquina:
 
-### 7.4 Vincular os números
+   ```bash
+   git clone https://github.com/LSANTOS16MXDH/CONTROLE-FINANCEIRO-INTEGRADO.git cfi
+   bash cfi/servidor/evolution/instalar.sh
+   ```
 
-Cada pessoa abre **Agentes** no site, escolhe o perfil padrão e clica em **Gerar código**. Depois envia `VINCULAR CÓDIGO` ao número do agente pelo próprio WhatsApp. O código vale por 15 minutos. A partir daí, fotos, PDFs, áudios e mensagens com gastos ou recebimentos viram lançamentos, e a resposta **desfazer** apaga o último.
+   Em alguns minutos, ele mostra `EVOLUTION_URL` (um endereço `https://...sslip.io`, com certificado gratuito) e `EVOLUTION_API_KEY`.
+6. **Grave os dois valores no Supabase**, no seu computador, dentro da pasta do projeto:
+
+   ```bash
+   npx supabase@2.122.0 secrets set EVOLUTION_URL=https://... EVOLUTION_API_KEY=...
+   ```
+
+Pronto. Daqui em diante, ninguém precisa mexer no servidor para conectar um número novo.
+
+### 7.4 Conectar o WhatsApp (cada pessoa, sozinha)
+
+No site, em **Agentes › Assistente no WhatsApp**:
+
+- **No computador:** escolha o perfil e clique em **Gerar QR Code**. No celular, abra o WhatsApp › **Configurações** › **Aparelhos conectados** › **Conectar aparelho** e aponte a câmera.
+- **No próprio celular:** escolha **Código**, digite o seu número com 55 e DDD e clique em **Gerar código**. Toque na notificação do WhatsApp (ou vá em **Aparelhos conectados › Conectar aparelho › Conectar com número de telefone**) e digite o código.
+
+A tela muda sozinha para **Conectado**, e o assistente manda uma mensagem de boas-vindas na conversa **"Você"** (a conversa com você mesmo). A partir daí, é só mandar ali os gastos e recebimentos: mensagem, foto ou PDF do comprovante, ou áudio. O assistente responde na mesma conversa, com 🤖, e **desfazer** apaga o último lançamento.
+
+Cada pessoa usa o próprio número. O assistente só responde na conversa "Você": as outras conversas chegam ao servidor, mas são descartadas sem ser guardadas. Para desligar, use **Desconectar** no site ou remova o aparelho "Controle Financeiro" em **Aparelhos conectados**.
 
 ### 7.5 Testes
 
 ```bash
 npx deno@2.9.6 test --allow-env supabase/functions/_testes/agentes.test.ts
 ```
+
+### 7.6 Manutenção do servidor
+
+- **Ver se está no ar:** `sudo docker compose -f cfi/servidor/evolution/docker-compose.yml ps`
+- **Reiniciar:** `sudo docker compose -f cfi/servidor/evolution/docker-compose.yml restart`
+- **Atualizar a Evolution:** troque a versão em `docker-compose.yml` e rode `up -d`. Antes de ir para a 2.4, leia as notas da versão: ela passou a exigir ativação de licença.
+- A Oracle pode desligar máquinas *Always Free* paradas por muito tempo. Com o WhatsApp conectado, a máquina fica em uso e isso não deve acontecer.
 
 ## Para vender no futuro
 

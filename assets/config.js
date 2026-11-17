@@ -6,6 +6,5 @@
 window.CFI_CONFIG = {
   SUPABASE_URL: 'https://hrkslzykntlfepclclcu.supabase.co',
   SUPABASE_ANON_KEY: 'sb_publishable_sONXPXMXDSWUtw3b3nc0pQ_pDg-XjnY',
-  APPLE_LOGIN: false, // ligue depois de configurar o provedor Apple no Supabase
-  WHATSAPP_NUMERO: '15551677598' // número do agente no WhatsApp, só dígitos com DDI (ex.: 5531999999999)
+  APPLE_LOGIN: false // ligue depois de configurar o provedor Apple no Supabase
 };

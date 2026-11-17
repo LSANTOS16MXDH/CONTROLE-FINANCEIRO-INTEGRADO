@@ -1,0 +1,49 @@
+# Servidor do WhatsApp (Evolution API) do Controle Financeiro Integrado.
+# Sobe tudo com: docker compose up -d   (o instalar.sh já faz isso)
+#
+# - evolution: mantém cada WhatsApp conectado como aparelho (versão fixa 2.3.7;
+#   a 2.4 passou a exigir ativação de licença).
+# - postgres e redis: guardam só as sessões; mensagens não são salvas (.env).
+# - caddy: dá o endereço https com certificado gratuito e automático.
+
+services:
+  evolution:
+    image: evoapicloud/evolution-api:v2.3.7
+    restart: always
+    env_file: .env
+    volumes:
+      - instancias:/evolution/instances
+    depends_on: [postgres, redis]
+    expose: ["8080"]
+
+  postgres:
+    image: postgres:15-alpine
+    restart: always
+    environment:
+      POSTGRES_USER: evolution
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: evolution
+    volumes:
+      - banco:/var/lib/postgresql/data
+
+  redis:
+    image: redis:7-alpine
+    restart: always
+    command: redis-server --save 60 1 --appendonly no
+    volumes:
+      - cache:/data
+
+  caddy:
+    image: caddy:2-alpine
+    restart: always
+    ports: ["80:80", "443:443"]
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy:/data
+    depends_on: [evolution]
+
+volumes:
+  instancias:
+  banco:
+  cache:
+  caddy:
