@@ -193,30 +193,14 @@
   }
   A.recarregarAgentes = () => carregarAgentes(false);
 
-  /* Conexão do próprio WhatsApp (QR Code ou código de pareamento), feita pela
-     função whatsapp-conexao com o login da pessoa. */
-  const ERROS_WHATS = {
-    servidor_nao_configurado: 'O servidor do WhatsApp ainda não foi configurado.',
-    servidor_indisponivel: 'O servidor do WhatsApp não respondeu. Tente de novo em instantes.',
-    numero_invalido: 'Confira o número: DDD e celular, com o código do país (55).',
-    aguarde: 'Só um instante antes de gerar outro código.',
-    nao_autenticado: 'Sua sessão expirou. Saia e entre de novo.'
+  A.gerarCodigoWhats = async perfil => {
+    const { data, error } = await db.rpc('gerar_codigo_whatsapp', { p_profile: perfil });
+    return error ? { erro: 'Não foi possível gerar o código. Tente de novo.' } : { codigo: data };
   };
-  A.whatsConexao = async (acao, extra = {}) => {
-    try {
-      const { data: s } = await db.auth.getSession();
-      const r = await fetch(cfg.SUPABASE_URL + '/functions/v1/whatsapp-conexao', {
-        method: 'POST',
-        headers: { Authorization: 'Bearer ' + (s.session ? s.session.access_token : ''), apikey: cfg.SUPABASE_ANON_KEY, 'Content-Type': 'application/json' },
-        body: JSON.stringify(Object.assign({ acao }, extra))
-      });
-      const d = await r.json().catch(() => ({}));
-      if (acao !== 'estado') carregarAgentes(false);
-      if (r.ok) return d;
-      return { erro: ERROS_WHATS[d.erro] || (r.status === 404 ? 'A conexão do WhatsApp ainda não foi publicada no Supabase.' : 'Não foi possível falar com o WhatsApp agora. Tente de novo.') };
-    } catch (e) {
-      return { erro: 'Sem conexão com o servidor. Verifique a internet e tente de novo.' };
-    }
+  A.desvincularWhats = async () => {
+    const { error } = await db.from('whatsapp_vinculos').delete().eq('user_id', A.usuario.id);
+    if (!error) await carregarAgentes(false);
+    return error ? 'Não foi possível desvincular. Tente de novo.' : '';
   };
 
   const ERROS_CFO = {

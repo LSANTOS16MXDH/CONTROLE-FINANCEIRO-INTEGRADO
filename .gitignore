@@ -4,7 +4,3 @@ node_modules/
 .env*
 supabase/.temp/
 supabase/.branches/
-
-# Servidor do WhatsApp: senhas e arquivos gerados na máquina
-servidor/evolution/.env
-servidor/evolution/Caddyfile

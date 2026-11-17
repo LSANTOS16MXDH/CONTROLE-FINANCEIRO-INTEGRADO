@@ -3,9 +3,9 @@
 type Linha = Record<string, any>;
 
 const CHAVES: Record<string, string> = {
-  whatsapp_mensagens: 'message_id', whatsapp_vinculos: 'phone', whatsapp_codigos: 'codigo', entries: 'id', cfo_mensagens: 'id', whatsapp_conexoes: 'user_id'
+  whatsapp_mensagens: 'message_id', whatsapp_vinculos: 'phone', whatsapp_codigos: 'codigo', entries: 'id', cfo_mensagens: 'id'
 };
-const UNICOS: Record<string, string[]> = { whatsapp_vinculos: ['user_id'], whatsapp_codigos: ['user_id'], whatsapp_conexoes: ['instancia'] };
+const UNICOS: Record<string, string[]> = { whatsapp_vinculos: ['user_id'], whatsapp_codigos: ['user_id'] };
 
 export class BancoFalso {
   tabelas: Record<string, Linha[]> = {};
@@ -38,7 +38,6 @@ class Consulta {
   select(_c?: string, opts?: any) { if (this.op === 'select') this.opts = opts || {}; return this; }
   insert(d: any) { this.op = 'insert'; this.dados = d; return this; }
   update(d: any) { this.op = 'update'; this.dados = d; return this; }
-  upsert(d: any) { this.op = 'upsert'; this.dados = d; return this; }
   delete() { this.op = 'delete'; return this; }
   eq(k: string, v: any) { this.filtros.push(r => r[k] === v); return this; }
   is(k: string, v: any) { this.filtros.push(r => (r[k] ?? null) === v); return this; }
@@ -73,12 +72,6 @@ class Consulta {
         for (const u of UNICOS[this.t] || []) if (tab.some(r => r[u] === n[u])) return { data: null, error: { code: '23505', message: 'duplicada' } };
       }
       tab.push(...novos);
-      return { data: null, error: null };
-    }
-    if (this.op === 'upsert') {
-      const pk = CHAVES[this.t], d = this.dados;
-      const achou = tab.find(r => r[pk] === d[pk]);
-      if (achou) Object.assign(achou, d); else tab.push({ created_at: this.b.relogio().toISOString(), ...d });
       return { data: null, error: null };
     }
     const alvo = tab.filter(r => this.filtros.every(f => f(r)));
