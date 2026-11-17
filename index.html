@@ -28,13 +28,13 @@
   <nav class="mainnav" id="mainnav" aria-label="Principal">
     <a href="#inicio" data-nav="inicio">Início</a>
     <a href="#plano" data-nav="plano">Plano de Contas</a>
-    <a href="#luiz-lancamentos" data-nav="lancamentos">Lançamentos</a>
+    <a href="#titular-lancamentos" data-nav="lancamentos">Lançamentos</a>
     <a href="#relatorios" data-nav="relatorios">Relatórios</a>
-    <a href="#luiz" data-nav="dashboards">Dashboards</a>
+    <a href="#titular" data-nav="dashboards">Dashboards</a>
     <a href="#agentes" data-nav="agentes">Agentes</a>
     <a href="#saiba-mais" data-nav="saiba">Saiba Mais</a>
   </nav>
-  <a class="btn btn-ink btn-sm topcta" id="topcta" href="#luiz">Abrir o painel</a>
+  <a class="btn btn-ink btn-sm topcta" id="topcta" href="#titular">Abrir o painel</a>
 </header>
 
 <!-- ============ LANDING ============ -->
@@ -45,24 +45,29 @@
       <div class="hero-side">
         <p>Lance entradas e saídas em uma linha. O sistema junta as contas pessoais, as do casal e as da empresa, e mostra o saldo do mês sem nenhuma planilha.</p>
         <div class="hero-cta">
-          <a class="btn btn-ink" href="#luiz">Abrir o painel</a>
+          <a class="btn btn-ink" href="#titular">Abrir o painel</a>
           <a class="btn btn-ghost" href="#como-funciona">Ver como funciona</a>
         </div>
       </div>
     </div>
     <div class="stage">
       <canvas id="flow" data-fitas aria-hidden="true"></canvas>
-      <a class="flowcard fc-a" href="#luiz">
-        <span class="fc-who"><i class="dot dot-cyan"></i>Luiz Santos</span>
-        <strong data-saldo="luiz">R$ 0</strong>
+      <a class="flowcard fc-a" href="#titular">
+        <span class="fc-who"><i class="dot dot-cyan"></i><span data-nome="titular"></span></span>
+        <strong data-saldo="titular">R$ 0</strong>
         <small data-mes-sub></small>
       </a>
-      <a class="flowcard fc-b" href="#cleide">
-        <span class="fc-who"><i class="dot dot-coral"></i>Cleide Nascimento</span>
-        <strong data-saldo="cleide">R$ 0</strong>
+      <a class="flowcard fc-b" href="#parceiro" data-so-casal>
+        <span class="fc-who"><i class="dot dot-coral"></i><span data-nome="parceiro"></span></span>
+        <strong data-saldo="parceiro">R$ 0</strong>
         <small data-mes-sub></small>
       </a>
-      <a class="flowcard fc-c" href="#casal">
+      <a class="flowcard fc-b" href="#empresa" data-so-individual>
+        <span class="fc-who"><i class="dot dot-coral"></i><span data-nome="empresa"></span></span>
+        <strong id="fc-empresa">R$ 0</strong>
+        <small>resultado no ano</small>
+      </a>
+      <a class="flowcard fc-c" href="#casal" data-so-casal>
         <span class="fc-who"><i class="dot dot-emerald"></i>Saldo do casal</span>
         <strong class="big" data-saldo="casal">R$ 0</strong>
         <small id="fc-casal-sub"></small>
@@ -79,12 +84,12 @@
     <div class="preview card">
       <div class="preview-bar">
         <div class="seg" role="tablist" aria-label="Perfil da prévia" id="preview-tabs">
-          <button role="tab" data-p="luiz" class="on" aria-selected="true">Luiz</button>
-          <button role="tab" data-p="cleide" aria-selected="false">Cleide</button>
-          <button role="tab" data-p="casal" aria-selected="false">Casal</button>
-          <button role="tab" data-p="empresa" aria-selected="false">Sixteen Design</button>
+          <button role="tab" data-p="titular" class="on" aria-selected="true" data-nome="titular"></button>
+          <button role="tab" data-p="parceiro" aria-selected="false" data-nome="parceiro" data-so-casal></button>
+          <button role="tab" data-p="casal" aria-selected="false" data-so-casal>Casal</button>
+          <button role="tab" data-p="empresa" aria-selected="false" data-nome="empresa"></button>
         </div>
-        <a class="linkarrow" id="preview-link" href="#luiz">Abrir o painel completo <span aria-hidden="true">→</span></a>
+        <a class="linkarrow" id="preview-link" href="#titular">Abrir o painel completo <span aria-hidden="true">→</span></a>
       </div>
       <div class="preview-body">
         <div class="preview-kpis" id="preview-kpis"></div>
@@ -112,14 +117,23 @@
           <span class="mini-go">Lançar</span>
         </div>
       </li>
-      <li class="step card">
+      <li class="step card" data-so-casal>
         <span class="stepno">2</span>
         <h3>O casal consolida sozinho</h3>
         <p>O que cada pessoa recebe e gasta entra direto no painel conjunto, junto com as contas da casa.</p>
         <div class="mini-sum" aria-hidden="true">
-          <div><i class="dot dot-cyan"></i><span>Luiz</span><b data-saldo="luiz">R$ 0</b></div>
-          <div><i class="dot dot-coral"></i><span>Cleide</span><b data-saldo="cleide">R$ 0</b></div>
+          <div><i class="dot dot-cyan"></i><span data-nome="titular"></span><b data-saldo="titular">R$ 0</b></div>
+          <div><i class="dot dot-coral"></i><span data-nome="parceiro"></span><b data-saldo="parceiro">R$ 0</b></div>
           <div class="total"><i class="dot dot-emerald"></i><span>Casal</span><b data-saldo="casal">R$ 0</b></div>
+        </div>
+      </li>
+      <li class="step card" data-so-individual>
+        <span class="stepno">2</span>
+        <h3>Pessoal e empresa separados</h3>
+        <p>O que é seu e o que é da empresa ficam em painéis próprios, cada um com o seu saldo.</p>
+        <div class="mini-sum" aria-hidden="true">
+          <div><i class="dot dot-cyan"></i><span data-nome="titular"></span><b data-saldo="titular">R$ 0</b></div>
+          <div class="total"><i class="dot dot-emerald"></i><span data-nome="empresa"></span><b id="mini-empresa">R$ 0</b></div>
         </div>
       </li>
       <li class="step card">
@@ -144,13 +158,13 @@
         <h3>Pessoal</h3>
         <p>Dashboard e lançamentos separados para cada pessoa, com metas por centro de custo e faturas mês a mês.</p>
         <ul>
-          <li><a href="#luiz">Dashboard de Luiz</a></li>
-          <li><a href="#luiz-lancamentos">Lançamentos de Luiz</a></li>
-          <li><a href="#cleide">Dashboard de Cleide</a></li>
-          <li><a href="#cleide-lancamentos">Lançamentos de Cleide</a></li>
+          <li><a href="#titular">Dashboard de <span data-nome="titular"></span></a></li>
+          <li><a href="#titular-lancamentos">Lançamentos de <span data-nome="titular"></span></a></li>
+          <li data-so-casal><a href="#parceiro">Dashboard de <span data-nome="parceiro"></span></a></li>
+          <li data-so-casal><a href="#parceiro-lancamentos">Lançamentos de <span data-nome="parceiro"></span></a></li>
         </ul>
       </div>
-      <div class="module">
+      <div class="module" data-so-casal>
         <h3>Casal</h3>
         <p>Entradas consolidadas, despesas por categoria e os cartões dos dois em uma visão conjunta.</p>
         <ul>
@@ -159,11 +173,11 @@
         </ul>
       </div>
       <div class="module">
-        <h3>Sixteen Design</h3>
+        <h3 data-nome="empresa"></h3>
         <p>Painel executivo com receitas e despesas contra a meta, contas a receber e a pagar, resultado e saldo acumulado.</p>
         <ul>
           <li><a href="#empresa">Painel executivo</a></li>
-          <li><a href="#empresa-lancamentos">Lançamentos da Sixteen Design</a></li>
+          <li><a href="#empresa-lancamentos">Lançamentos da <span data-nome="empresa"></span></a></li>
         </ul>
       </div>
     </div>
@@ -182,7 +196,7 @@
       </details>
       <details>
         <summary>Como usamos em casal?</summary>
-        <p>Cada pessoa entra com a própria conta Google ou Apple. Quem criou o espaço envia o código de convite em Minha conta, e as duas contas passam a usar os mesmos dados.</p>
+        <p>Quem comprou cria o CFI como conta conjunta e cadastra o e-mail Google do parceiro(a). A outra pessoa entra no site, escolhe “Entrar em um CFI existente” e digita o e-mail de quem comprou. O titular confere o nome e o e-mail no pedido e autoriza; a partir daí, as duas contas usam os mesmos dados.</p>
       </details>
       <details>
         <summary>Como confirmo um pagamento pendente?</summary>
@@ -190,7 +204,7 @@
       </details>
       <details>
         <summary>Onde meus lançamentos ficam salvos?</summary>
-        <p>Em um banco de dados na nuvem, ligado à sua conta. Só as contas do seu espaço conseguem ver os dados, e tudo o que uma pessoa lança aparece para a outra em instantes.</p>
+        <p>Em um banco de dados na nuvem, ligado ao seu CFI. Só as contas do seu CFI conseguem ver os nomes e os valores; nenhum outro cliente tem acesso. Na conta conjunta, o que uma pessoa lança aparece para a outra em instantes.</p>
       </details>
     </div>
   </section>
@@ -201,7 +215,7 @@
         <h2>Faça o primeiro lançamento agora.</h2>
         <p>O painel começa vazio. Lance o primeiro valor e veja o saldo mudar.</p>
       </div>
-      <a class="btn btn-light" href="#luiz-lancamentos">Começar agora</a>
+      <a class="btn btn-light" href="#titular-lancamentos">Começar agora</a>
     </div>
   </section>
   <footer class="wrap sitefoot">Plataforma de Gestão Financeira</footer>

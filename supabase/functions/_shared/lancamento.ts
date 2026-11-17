@@ -1,13 +1,8 @@
 // Transforma o que o Gemini leu de uma mensagem em linhas da tabela entries,
 // com as mesmas regras do formulário do site (assets/data.js -> adicionar).
-import dados from './perfis.json' with { type: 'json' };
-
-type Kind = 'in' | 'out';
-interface Opcoes { categorias: { nome: string; descricao: string }[]; formas: string[]; cartoes: string[] }
-interface Perfil { nome: string; curto: string; in: Opcoes; out: Opcoes }
-
-export const PERFIS = dados.perfis as Record<string, Perfil>;
-export const TIPOS = dados.tipos as string[];
+// Os perfis são do CFI de quem mandou a mensagem (carregarPerfis).
+import type { Kind, Perfis } from './perfis.ts';
+export { TIPOS, type Perfis } from './perfis.ts';
 
 /** Lançamento como o modelo devolve. "conta" é "perfil|in|CATEGORIA" ou "perfil|out|CATEGORIA". */
 export interface Extraido {
@@ -28,19 +23,19 @@ export interface Linha {
 }
 
 /** Todas as combinações válidas de perfil, tipo e categoria. */
-export function contas(): string[] {
+export function contas(perfis: Perfis): string[] {
   const lista: string[] = [];
-  for (const [id, p] of Object.entries(PERFIS)) {
+  for (const [id, p] of Object.entries(perfis)) {
     for (const k of ['in', 'out'] as Kind[]) p[k].categorias.forEach(c => lista.push(`${id}|${k}|${c.nome}`));
   }
   return lista;
 }
 
-const todasFormas = () => [...new Set(Object.values(PERFIS).flatMap(p => [...p.in.formas, ...p.out.formas]))];
-const todosCartoes = () => [...new Set(Object.values(PERFIS).flatMap(p => p.out.cartoes))];
+const todasFormas = (perfis: Perfis) => [...new Set(Object.values(perfis).flatMap(p => [...p.in.formas, ...p.out.formas]))];
+const todosCartoes = (perfis: Perfis) => [...new Set(Object.values(perfis).flatMap(p => p.out.cartoes))];
 
 /** Esquema da resposta do modelo: as listas fechadas impedem categorias inventadas. */
-export function esquemaExtracao() {
+export function esquemaExtracao(perfis: Perfis) {
   return {
     type: 'object',
     properties: {
@@ -49,12 +44,12 @@ export function esquemaExtracao() {
         items: {
           type: 'object',
           properties: {
-            conta: { type: 'string', enum: contas(), description: 'perfil|in|CATEGORIA para entrada, perfil|out|CATEGORIA para saída' },
+            conta: { type: 'string', enum: contas(perfis), description: 'perfil|in|CATEGORIA para entrada, perfil|out|CATEGORIA para saída' },
             descricao: { type: 'string', description: 'Estabelecimento ou descrição curta, até 60 caracteres' },
             valor_parcela: { type: 'number', description: 'Valor de cada parcela em reais; sem parcelamento, o valor total' },
             parcelas: { type: 'integer', minimum: 1, maximum: 48 },
-            forma: { type: 'string', enum: todasFormas() },
-            cartao: { type: 'string', enum: todosCartoes(), description: "Cartão ou conta usada; '-' se não informado" },
+            forma: { type: 'string', enum: todasFormas(perfis) },
+            cartao: { type: 'string', enum: todosCartoes(perfis), description: "Cartão ou conta usada; '-' se não informado" },
             recorrente: { type: 'boolean', description: 'Conta que se repete todo mês (assinatura, aluguel, plano)' },
             data: { type: 'string', format: 'date', description: 'Data da compra, do recebimento ou do vencimento (AAAA-MM-DD)' },
             pago: { type: 'boolean', description: 'true se já foi pago ou recebido; false se ainda vai vencer' }
@@ -83,10 +78,10 @@ function escolherCartao(lista: string[], pedido: string, forma: string): string 
 const dataValida = (s: string) => /^\d{4}-\d{2}-\d{2}$/.test(s) && !isNaN(Date.parse(s + 'T00:00:00Z'));
 
 /** Valida e expande parcelas. Lança Error com mensagem para o usuário se algo não fecha. */
-export function montarLinhas(e: Extraido, hoje: string, novoId: () => string = () => crypto.randomUUID()): Linha[] {
+export function montarLinhas(e: Extraido, hoje: string, perfis: Perfis, novoId: () => string = () => crypto.randomUUID()): Linha[] {
   const [perfil, kind, ...resto] = (e.conta || '').split('|');
   const cat = resto.join('|');
-  const p = PERFIS[perfil];
+  const p = perfis[perfil];
   if (!p || (kind !== 'in' && kind !== 'out') || !p[kind].categorias.some(c => c.nome === cat)) {
     throw new Error('Não identifiquei a categoria do lançamento.');
   }
@@ -116,9 +111,9 @@ export const brl = (v: number) => 'R$ ' + v.toLocaleString('pt-BR', { minimumFra
 export const dataBR = (iso: string) => iso.split('-').reverse().join('/');
 
 /** Resumo de um lançamento para a resposta no WhatsApp. */
-export function descrever(linhas: Linha[]): string {
-  const r = linhas[0], p = PERFIS[r.profile];
-  const onde = `${p.curto} › ${r.kind === 'in' ? 'Entrada' : 'Saída'}`;
+export function descrever(linhas: Linha[], perfis: Perfis): string {
+  const r = linhas[0], p = perfis[r.profile];
+  const onde = `${p?.curto ?? r.profile} › ${r.kind === 'in' ? 'Entrada' : 'Saída'}`;
   const parc = linhas.length > 1 ? ` em ${linhas.length}x de ${brl(r.val)} (total ${brl(r.val * linhas.length)})` : ` ${brl(r.val)}`;
   const meio = [r.forma, r.card !== '-' ? r.card : ''].filter(Boolean).join(' ');
   const situacao = r.pag ? `pago em ${dataBR(r.pag)}` : `vence em ${dataBR(r.venc)}`;

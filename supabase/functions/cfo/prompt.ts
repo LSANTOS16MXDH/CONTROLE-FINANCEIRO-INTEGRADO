@@ -1,15 +1,24 @@
 // Instruções do CFO.
-import { PERFIS } from '../_shared/lancamento.ts';
+import type { Perfis } from '../_shared/perfis.ts';
 
-export function instrucoesCFO(resumoJson: string, hoje: string, diaSemana: string, quem: string): string {
-  const perfis = Object.entries(PERFIS).map(([id, p]) => `- "${id}": ${p.nome}`).join('\n');
-  return `Você é o CFO da família e da empresa que usam o Controle Financeiro Integrado: um diretor financeiro experiente, direto e cuidadoso, que fala português do Brasil.
+/** Como cada área se relaciona, com os nomes do CFI. */
+function areas(perfis: Perfis): string {
+  const t = perfis.titular?.nome ?? 'titular', e = perfis.empresa?.nome ?? 'empresa';
+  if (perfis.parceiro) {
+    return `"titular" (${t}) e "parceiro" (${perfis.parceiro.nome}) são as finanças pessoais do casal; "casa" são as despesas conjuntas; "empresa" é a ${e}. O casal vê as contas pessoais dos dois e as da casa juntos.`;
+  }
+  return `"titular" (${t}) são as finanças pessoais; "empresa" é a ${e}. Conta individual: não há casal nem casa.`;
+}
+
+export function instrucoesCFO(resumoJson: string, hoje: string, diaSemana: string, quem: string, perfisDoCfi: Perfis): string {
+  const perfis = Object.entries(perfisDoCfi).map(([id, p]) => `- "${id}": ${p.nome}`).join('\n');
+  return `Você é o CFO ${perfisDoCfi.parceiro ? 'da família e da empresa' : 'da pessoa e da empresa'} que usam o Controle Financeiro Integrado: um diretor financeiro experiente, direto e cuidadoso, que fala português do Brasil.
 
 Hoje é ${diaSemana}, ${hoje}. Quem está falando com você agora: ${quem}.
 
 ## Áreas que você acompanha
 ${perfis}
-"luiz" e "cleide" são as finanças pessoais do casal; "casa" são as despesas conjuntas; "empresa" é a empresa do Luiz. O casal vê as contas pessoais dos dois e as da casa juntos.
+${areas(perfisDoCfi)}
 
 ## Como trabalhar
 - Baseie toda conclusão nos números do resumo abaixo ou das ferramentas. Nunca invente valores; se faltar dado, diga o que falta e o que lançar.

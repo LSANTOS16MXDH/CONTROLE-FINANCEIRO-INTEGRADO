@@ -16,24 +16,36 @@
 
   const ui = {
     month: new Date().getMonth(), year: new Date().getFullYear(), mode: 'real', card: {}, catIn: {}, catOut: {},
-    drafts: {}, sort: {}, empresaAba: 'todas', lastProfile: 'luiz', lastLanc: 'luiz-lancamentos', relatorio: 'luiz'
+    drafts: {}, sort: {}, empresaAba: 'todas', lastProfile: 'titular', lastLanc: 'titular-lancamentos', relatorio: 'titular',
+    entrar: { email: '', nome: '' }
   };
 
-  const ROUTES = {
-    luiz: { dash: 'luiz', perfil: 'luiz', title: 'Dashboard de Luiz' },
-    'luiz-lancamentos': { lanc: 'luiz', perfil: 'luiz', title: 'Lançamentos de Luiz' },
-    cleide: { dash: 'cleide', perfil: 'cleide', title: 'Dashboard de Cleide' },
-    'cleide-lancamentos': { lanc: 'cleide', perfil: 'cleide', title: 'Lançamentos de Cleide' },
-    casal: { dash: 'casal', perfil: 'casal', title: 'Dashboard do casal' },
-    'casa-lancamentos': { lanc: 'casa', perfil: 'casal', title: 'Gastos da casa' },
-    empresa: { emp: true, perfil: 'empresa', title: 'Painel da Sixteen Design' },
-    'empresa-lancamentos': { lanc: 'empresa', perfil: 'empresa', title: 'Lançamentos da Sixteen Design' },
-    plano: { plano: true, title: 'Plano de contas' },
-    relatorios: { rel: true, title: 'Relatórios' },
-    conta: { conta: true, title: 'Minha conta' },
-    agentes: { agentes: true, title: 'Agentes inteligentes' }
-  };
-  const PERFIS = [['luiz', 'Luiz', 'luiz', 'luiz-lancamentos'], ['cleide', 'Cleide', 'cleide', 'cleide-lancamentos'], ['casal', 'Casal', 'casal', 'casa-lancamentos'], ['empresa', 'Sixteen Design', 'empresa', 'empresa-lancamentos']];
+  /* As telas e os títulos usam os nomes do CFI de quem está logado. */
+  const nomeDe = p => PROFILES[p] ? PROFILES[p].nome : '';
+  const casal = () => F.CFI.casal;
+  function rotas() {
+    const r = {
+      titular: { dash: 'titular', perfil: 'titular', title: 'Dashboard de ' + nomeDe('titular') },
+      'titular-lancamentos': { lanc: 'titular', perfil: 'titular', title: 'Lançamentos de ' + nomeDe('titular') },
+      empresa: { emp: true, perfil: 'empresa', title: 'Painel da ' + nomeDe('empresa') },
+      'empresa-lancamentos': { lanc: 'empresa', perfil: 'empresa', title: 'Lançamentos da ' + nomeDe('empresa') },
+      plano: { plano: true, title: 'Plano de contas' },
+      relatorios: { rel: true, title: 'Relatórios' },
+      conta: { conta: true, title: 'Minha conta' },
+      agentes: { agentes: true, title: 'Agentes inteligentes' }
+    };
+    if (casal()) Object.assign(r, {
+      parceiro: { dash: 'parceiro', perfil: 'parceiro', title: 'Dashboard de ' + nomeDe('parceiro') },
+      'parceiro-lancamentos': { lanc: 'parceiro', perfil: 'parceiro', title: 'Lançamentos de ' + nomeDe('parceiro') },
+      casal: { dash: 'casal', perfil: 'casal', title: 'Dashboard do casal' },
+      'casa-lancamentos': { lanc: 'casa', perfil: 'casal', title: 'Gastos da casa' }
+    });
+    return r;
+  }
+  const perfisNav = () => (casal()
+    ? [['titular', nomeDe('titular'), 'titular', 'titular-lancamentos'], ['parceiro', nomeDe('parceiro'), 'parceiro', 'parceiro-lancamentos'], ['casal', 'Casal', 'casal', 'casa-lancamentos'], ['empresa', nomeDe('empresa'), 'empresa', 'empresa-lancamentos']]
+    : [['titular', nomeDe('titular'), 'titular', 'titular-lancamentos'], ['empresa', nomeDe('empresa'), 'empresa', 'empresa-lancamentos']]);
+  const doCasal = () => `${esc(nomeDe('titular'))} &amp; ${esc(nomeDe('parceiro'))}`;
 
   /* ---------- Componentes ---------- */
   const IC = {
@@ -77,7 +89,7 @@
   /* ---------- Dashboard pessoal e do casal ---------- */
   function renderDash(p) {
     const casal = p === 'casal';
-    const titulo = casal ? 'Dashboard financeiro do casal — Cleide &amp; Luiz' : 'Dashboard financeiro pessoal — ' + PROFILES[p].nome;
+    const titulo = casal ? 'Dashboard financeiro do casal — ' + doCasal() : 'Dashboard financeiro pessoal — ' + esc(PROFILES[p].nome);
     const m = ui.month, y = ui.year, mode = ui.mode;
     const t = F.totais(p, m, y, mode);
     const desp = F.despesas(p, m, y, mode).filter(d => d.val > 0);
@@ -89,7 +101,7 @@
     if (!cards.includes(ui.card[p])) ui.card[p] = cards[0];
     const fat = F.faturas(p, ui.card[p], y, mode);
 
-    const catsIn = casal ? [['luiz', 'LUIZ SANTOS'], ['cleide', 'CLEIDE NASCIMENTO']] : PROFILES[p].catIn;
+    const catsIn = casal ? [['titular', nomeDe('titular').toUpperCase()], ['parceiro', nomeDe('parceiro').toUpperCase()]] : PROFILES[p].catIn;
     const catsOut = casal ? F.casalGrupos().map(g => g.nome) : PROFILES[p].catOut;
     const inVals = casal ? catsIn.map(c => c[0]) : catsIn;
     if (!inVals.includes(ui.catIn[p])) ui.catIn[p] = inVals[0];
@@ -142,7 +154,7 @@
           <div class="progs tight">${fat.meses.map((v, i) => `<div class="${i === m ? 'prog-on' : ''}">${progress(MES[i], metaTxt(v, fat.limite, 'sem limite'), pctDe(v, fat.limite), 'cyan', fat.limite > 0 && v > fat.limite ? 'Acima do limite' : '')}</div>`).join('')}</div>
         </section>
       </div>
-      ${footer(casal ? 'Contas conjuntas do casal' : PROFILES[p].nome)}`;
+      ${footer(casal ? 'Contas conjuntas do casal' : esc(PROFILES[p].nome))}`;
 
     C.donut($('#ch-donut'), {
       size: 184, stroke: 15,
@@ -183,7 +195,7 @@
     const vazio = e.totalRec === 0 && e.totalGas === 0 && e.aReceber === 0 && e.aPagar === 0;
 
     $('#view').innerHTML = `
-      ${pageHead('Dashboard financeiro — Sixteen Design', yearSelect())}
+      ${pageHead('Dashboard financeiro — ' + esc(nomeDe('empresa')), yearSelect())}
       ${vazio ? aviso(`Nenhum lançamento em ${ui.year}.`, 'empresa-lancamentos', 'Fazer um lançamento') : ''}
       <div class="emp-top">
         <section class="card panel">
@@ -226,7 +238,7 @@
           <div class="chart" id="ch-acc" data-h="180"></div>
         </section>
       </div>
-      ${footer('Painel da Sixteen Design')}`;
+      ${footer('Painel da ' + esc(nomeDe('empresa')))}`;
 
     const center = t => `<small>${t}</small>`;
     C.donut($('#ch-mix-r'), { size: 120, stroke: 13, segs: recSegs, center: center('R-P / R-S'), aria: 'Composição das receitas' });
@@ -337,28 +349,28 @@
     const casa = p === 'casa', emp = p === 'empresa';
     let html = '';
     if (casa) {
-      const lz = F.totais('luiz', ui.month, ui.year, 'real').saldo;
-      const cl = F.totais('cleide', ui.month, ui.year, 'real').saldo;
-      const linha = (nome, val) => `<tr><td class="strong">${nome}</td><td>Saldo líquido do mês</td><td class="num">${brl2(val)}</td><td>${MES[ui.month]}</td><td>${ui.year}</td></tr>`;
-      html = `${pageHead('Gastos e saídas da casa — Contas conjuntas (Cleide &amp; Luiz)', monthSelect() + yearSelect())}
+      const lz = F.totais('titular', ui.month, ui.year, 'real').saldo;
+      const cl = F.totais('parceiro', ui.month, ui.year, 'real').saldo;
+      const linha = (nome, val) => `<tr><td class="strong">${esc(nome.toUpperCase())}</td><td>Saldo líquido do mês</td><td class="num">${brl2(val)}</td><td>${MES[ui.month]}</td><td>${ui.year}</td></tr>`;
+      html = `${pageHead('Gastos e saídas da casa — Contas conjuntas (' + doCasal() + ')', monthSelect() + yearSelect())}
         <section class="card panel lanc">
           <div class="panel-h"><h2 class="c-info">Entradas resumidas do casal (consolidado)</h2><span class="panel-note">Saldo líquido de cada pessoa no mês</span></div>
           <div class="tablewrap" tabindex="0" role="region" aria-label="Entradas do casal"><table><thead><tr>${['Origem', 'Observações', 'Valor líquido', 'Mês', 'Ano'].map((h, i) => `<th scope="col" class="${i === 2 ? 'num' : ''}"><span class="thtxt">${h}</span></th>`).join('')}</tr></thead>
-          <tbody>${linha('LUIZ SANTOS', lz)}${linha('CLEIDE NASCIMENTO', cl)}</tbody></table></div>
+          <tbody>${linha(nomeDe('titular'), lz)}${linha(nomeDe('parceiro'), cl)}</tbody></table></div>
         </section>
         <section class="card panel lanc">
           <div class="panel-h"><h2 class="c-out">Saídas e despesas da casa</h2></div>
           ${formHTML(p, 'out')}${tableHTML(p, 'out', COL_OUT)}
         </section>
-        ${footer('Gastos da casa (Cleide &amp; Luiz)')}`;
+        ${footer('Gastos da casa (' + doCasal() + ')')}`;
     } else {
-      const titulo = emp ? 'Lançamentos — Sixteen Design' : 'Interface de lançamentos — ' + PROFILES[p].nome;
+      const titulo = (emp ? 'Lançamentos — ' : 'Interface de lançamentos — ') + esc(PROFILES[p].nome);
       const direita = emp ? monthSelect() + yearSelect() + resumoEmpresa() : monthSelect() + yearSelect() + resumo(p);
       const showIn = !emp || ui.empresaAba !== 'saidas', showOut = !emp || ui.empresaAba !== 'entradas';
       html = `${pageHead(titulo, direita)}
-        ${showIn ? `<section class="card panel lanc"><div class="panel-h"><h2 class="c-in">${emp ? 'Entradas da Sixteen Design' : 'Entradas (recebimentos)'}</h2></div>${formHTML(p, 'in')}${tableHTML(p, 'in', COL_IN)}</section>` : ''}
-        ${showOut ? `<section class="card panel lanc"><div class="panel-h"><h2 class="c-out">${emp ? 'Saídas da Sixteen Design' : 'Saídas (despesas)'}</h2></div>${formHTML(p, 'out')}${tableHTML(p, 'out', COL_OUT)}</section>` : ''}
-        ${footer(emp ? 'Lançamentos da Sixteen Design' : 'Lançamentos de ' + PROFILES[p].nome)}`;
+        ${showIn ? `<section class="card panel lanc"><div class="panel-h"><h2 class="c-in">${emp ? 'Entradas da ' + esc(nomeDe('empresa')) : 'Entradas (recebimentos)'}</h2></div>${formHTML(p, 'in')}${tableHTML(p, 'in', COL_IN)}</section>` : ''}
+        ${showOut ? `<section class="card panel lanc"><div class="panel-h"><h2 class="c-out">${emp ? 'Saídas da ' + esc(nomeDe('empresa')) : 'Saídas (despesas)'}</h2></div>${formHTML(p, 'out')}${tableHTML(p, 'out', COL_OUT)}</section>` : ''}
+        ${footer((emp ? 'Lançamentos da ' : 'Lançamentos de ') + esc(PROFILES[p].nome))}`;
     }
     $('#view').innerHTML = html;
     $$('form.lform').forEach(syncCardField);
@@ -433,24 +445,26 @@
         <div class="tablewrap" tabindex="0" role="region" aria-label="Plano de contas: ${titulo}"><table class="tbl-compact"><thead><tr><th scope="col"><span class="thtxt">Código</span></th><th scope="col"><span class="thtxt">Conta</span></th><th scope="col"><span class="thtxt">Tipo</span></th>${comMeta ? '<th scope="col" class="num"><span class="thtxt">Meta mensal (R$)</span></th>' : ''}</tr></thead>
         <tbody>${lin('Entrada', d.catIn, '1', 'in')}${lin('Saída', d.catOut, '2', 'out')}</tbody></table></div></section>`;
     };
-    const cartoes = ['luiz', 'cleide'].flatMap(p => PROFILES[p].cartoes.map(c => [p, c]));
+    const cartoes = (casal() ? ['titular', 'parceiro'] : ['titular']).flatMap(p => PROFILES[p].cartoes.map(c => [p, c]));
     const empMetas = [['metaRec', 'Meta de receitas no ano'], ['tetoDesp', 'Limite de despesas no ano'], ['metaRes', 'Meta de resultado no ano']];
     $('#view').innerHTML = `${pageHead('Plano de contas')}
       <p class="notice">Preencha metas e limites com os seus valores. Cada campo é salvo assim que você sai dele.</p>
       <div class="plan-grid">
         <section class="card panel"><div class="panel-h"><h2>Limites dos cartões</h2></div>
-          <div class="plan-fields">${cartoes.map(([p, c]) => `<label>${c} — ${PROFILES[p].curto}<span class="plan-prefix">R$</span>${campo(`data-limit="${p}" data-card="${c}"`, F.limiteDe(p, c), `Limite do cartão ${c} de ${PROFILES[p].curto}`)}</label>`).join('')}</div>
+          <div class="plan-fields">${cartoes.map(([p, c]) => `<label>${esc(c)} — ${esc(PROFILES[p].curto)}<span class="plan-prefix">R$</span>${campo(`data-limit="${p}" data-card="${esc(c)}"`, F.limiteDe(p, c), `Limite do cartão ${c} de ${PROFILES[p].curto}`)}</label>`).join('')}</div>
         </section>
-        <section class="card panel"><div class="panel-h"><h2>Metas da Sixteen Design</h2></div>
+        <section class="card panel"><div class="panel-h"><h2>Metas da ${esc(nomeDe('empresa'))}</h2></div>
           <div class="plan-fields">${empMetas.map(([k, l]) => `<label>${l}<span class="plan-prefix">R$</span>${campo(`data-emp="${k}"`, F.metaEmpresa(k), l)}</label>`).join('')}</div>
         </section>
-        ${bloco('Luiz Santos', 'luiz', 'luiz-lancamentos', true)}${bloco('Cleide Nascimento', 'cleide', 'cleide-lancamentos', true)}${bloco('Casa (casal)', 'casa', 'casa-lancamentos', true)}${bloco('Sixteen Design', 'empresa', 'empresa-lancamentos', false)}
+        ${bloco(esc(nomeDe('titular')), 'titular', 'titular-lancamentos', true)}${casal() ? bloco(esc(nomeDe('parceiro')), 'parceiro', 'parceiro-lancamentos', true) + bloco('Casa (casal)', 'casa', 'casa-lancamentos', true) : ''}${bloco(esc(nomeDe('empresa')), 'empresa', 'empresa-lancamentos', false)}
       </div>
       ${footer('Plano de contas')}`;
   }
 
   /* ---------- Relatórios ---------- */
   function renderRelatorios() {
+    const nomes = perfisNav().map(([k, l]) => [k, k === 'casal' ? 'CASAL' : l.toUpperCase()]);
+    if (!nomes.some(n => n[0] === ui.relatorio)) ui.relatorio = 'titular';
     const p = ui.relatorio, y = ui.year, mode = ui.mode;
     let linhas;
     if (p === 'empresa') {
@@ -460,7 +474,6 @@
       linhas = F.serieAnual(p, y, mode).map((t, m) => ({ m, rec: t.rec, gas: t.gas, saldo: t.saldo }));
     }
     const sum = k => linhas.reduce((s, l) => s + l[k], 0);
-    const nomes = [['luiz', 'LUIZ SANTOS'], ['cleide', 'CLEIDE NASCIMENTO'], ['casal', 'CASAL'], ['empresa', 'SIXTEEN DESIGN']];
     $('#view').innerHTML = `
       ${pageHead('Relatórios', (p === 'empresa' ? '' : modeToggle()) + yearSelect() + select('sel-rel', 'Perfil', nomes, p))}
       <section class="card panel">
@@ -477,7 +490,7 @@
         </table></div>
       </section>
       ${F.temDados() && A.ehDono() ? `<div class="reset-row">${ui.confirmaApagar
-        ? `<span>${A.ativo ? 'Apagar todos os lançamentos, metas e limites para as duas contas?' : 'Apagar todos os lançamentos, metas e limites deste navegador?'} Isso não pode ser desfeito.</span><button class="btn btn-ghost btn-sm" data-reset-cancel>Cancelar</button><button class="btn btn-danger btn-sm" data-reset-ok>Apagar tudo</button>`
+        ? `<span>${A.ativo ? (casal() ? 'Apagar todos os lançamentos, metas e limites para as duas contas?' : 'Apagar todos os lançamentos, metas e limites do seu CFI?') : 'Apagar todos os lançamentos, metas e limites deste navegador?'} Isso não pode ser desfeito.</span><button class="btn btn-ghost btn-sm" data-reset-cancel>Cancelar</button><button class="btn btn-danger btn-sm" data-reset-ok>Apagar tudo</button>`
         : `<button class="btn btn-ghost btn-sm" data-reset>Apagar todos os meus dados</button>`}</div>` : ''}
       ${footer('Relatórios')}`;
   }
@@ -493,38 +506,136 @@
       <path d="M3 24c9 0 10-8 18-8h8" fill="none" stroke="url(#marca-b)" stroke-width="3.4" stroke-linecap="round"/>
     </svg><span>Controle Financeiro <b>Integrado</b></span></div>`;
 
+  /* ---------- Entrada: criar um CFI ou entrar em um existente ----------
+     Antes do login, a pessoa escolhe o caminho. Depois do Google:
+     - quem já participa de um CFI vai direto para ele;
+     - "criar" (quem comprou) escolhe conjunta ou individual e dá os nomes;
+     - "entrar" digita o e-mail de quem comprou, confirma o nome e pede
+       autorização. O titular aceita ou recusa dentro do próprio CFI. */
+  const primeiroNome = () => {
+    const u = A.usuario || {}, md = u.user_metadata || {};
+    return String(md.full_name || md.name || '').trim().split(/\s+/)[0] || '';
+  };
+  const sairLink = () => `<p class="gate-quem">Conectado como <b>${esc((A.usuario && A.usuario.email) || 'sua conta')}</b>. <button class="linkbtn" data-sair>Sair e usar outra conta</button></p>`;
+  const erroGate = '<p class="form-err gate-err" id="gate-erro" role="alert" hidden></p>';
+
+  function formCriar(completar) {
+    const w = completar ? A.espaco : null;
+    const conj = !w || w.max_members !== 1;
+    const membro = w ? A.membros.find(m => m.user_id !== A.usuario.id) : null;
+    return `<form class="gate-form cfi-form" id="form-criar" novalidate>
+      <fieldset class="cfi-tipos">
+        <legend>Como vai ser o seu CFI?</legend>
+        <label class="cfi-tipo"><input type="radio" name="tipo" value="conjunto"${conj ? ' checked' : ''}>
+          <span><b>Conta conjunta</b><small>Você, seu namorado(a) ou cônjuge, o casal e a empresa</small></span></label>
+        <label class="cfi-tipo"><input type="radio" name="tipo" value="individual"${conj ? '' : ' checked'}${membro ? ' disabled' : ''}>
+          <span><b>Conta individual</b><small>Você e a sua empresa</small></span></label>
+      </fieldset>
+      <div class="cfi-campo"><label for="cfi-titular">Seu nome</label>
+        <input id="cfi-titular" name="titular" maxlength="40" autocomplete="given-name" value="${esc(primeiroNome())}" placeholder="Ex.: Ana" required></div>
+      <div class="cfi-conjunto"${conj ? '' : ' hidden'}>
+        <div class="cfi-campo"><label for="cfi-parceiro">Nome do(a) parceiro(a)</label>
+          <input id="cfi-parceiro" name="parceiro" maxlength="40" value="${esc(membro ? (membro.display_name || '').split(/\s+/)[0] : '')}" placeholder="Ex.: Bruno"></div>
+        <div class="cfi-campo"><label for="cfi-email">E-mail Google do(a) parceiro(a)</label>
+          <input id="cfi-email" name="email" type="email" maxlength="120" autocomplete="off" value="${esc(membro ? membro.email || '' : '')}" placeholder="email@gmail.com">
+          <small>É a chave de entrada: só este e-mail poderá pedir para entrar no seu CFI, e a entrada só acontece depois da sua autorização.</small></div>
+      </div>
+      <div class="cfi-campo"><label for="cfi-empresa">Nome da empresa</label>
+        <input id="cfi-empresa" name="empresa" maxlength="60" autocomplete="organization" placeholder="Ex.: Studio Aurora" required></div>
+      <p class="cfi-nota cfi-conjunto"${conj ? '' : ' hidden'}>A área do casal não precisa de nome: ela se chama <b>Casal</b>.</p>
+      ${erroGate}
+      <button class="btn btn-ink" type="submit">${completar ? 'Salvar e abrir o CFI' : 'Criar meu CFI'}</button>
+    </form>`;
+  }
+
+  function formEntrar() {
+    const e = ui.entrar;
+    const recusado = A.pedido && A.pedido.status === 'recusado'
+      ? `<p class="notice">O pedido para entrar no CFI de ${esc(A.pedido.nome_titular || 'quem comprou')} foi recusado. Confira com a pessoa e tente de novo.</p>` : '';
+    if (e.nome) {
+      return `${recusado}<div class="cfi-achado">
+        <p>Encontramos o Controle Financeiro Integrado de</p>
+        <strong>${esc(e.nome)}</strong>
+        <small>${esc(e.email)}</small>
+      </div>
+      <p class="gate-txt">É essa pessoa? Vamos enviar um pedido com o seu nome e o seu e-mail (<b>${esc(A.usuario.email || '')}</b>). Você entra assim que o pedido for autorizado.</p>
+      ${erroGate}
+      <div class="gate-actions"><button class="btn btn-ink" data-pedir>Sim, pedir para entrar</button><button class="btn btn-ghost" data-entrar-voltar>Não é essa pessoa</button></div>`;
+    }
+    return `${recusado}<form class="gate-form cfi-form" id="form-procurar" novalidate>
+      <div class="cfi-campo"><label for="cfi-busca">E-mail de quem comprou o CFI</label>
+        <input id="cfi-busca" name="email" type="email" maxlength="120" autocomplete="off" value="${esc(e.email)}" placeholder="email@gmail.com" required>
+        <small>O e-mail Google do seu namorado(a) ou cônjuge, usado na compra.</small></div>
+      ${erroGate}
+      <button class="btn btn-ink" type="submit">Continuar</button>
+    </form>`;
+  }
+
+  const escolha = (logado) => `<div class="cfi-escolha">
+      <button class="cfi-opcao" data-intencao="criar">
+        <b>Criar um novo CFI</b><small>Acabei de comprar o Controle Financeiro Integrado</small></button>
+      <button class="cfi-opcao" data-intencao="entrar">
+        <b>Entrar em um CFI existente</b><small>Meu namorado(a) ou cônjuge já comprou e me cadastrou</small></button>
+    </div>
+    ${logado ? '' : `<p class="gate-txt">Já usa o CFI? <button class="linkbtn" data-login="google">Entre com a mesma conta Google</button>.</p>`}`;
+
   function renderPortao() {
     const v = $('#view');
     const erro = A.erro ? `<p class="form-err gate-err" role="alert">${esc(A.erro)}</p>` : '';
+    const tela = (corpo, cls) => { v.innerHTML = `<section class="card gate ${cls || ''}">${MARCA}${corpo}</section>`; };
+    const voltar = '<button class="linkbtn cfi-voltar" data-intencao="">← Voltar</button>';
+
     if (A.estado === 'carregando') {
       v.innerHTML = `<section class="card gate" aria-busy="true">${MARCA}<p>${A.usuario ? 'Carregando seus dados…' : 'Só um instante…'}</p></section>`;
     } else if (A.estado === 'anonimo') {
-      v.innerHTML = `<section class="card gate">
-        ${MARCA}
-        <h1>Todo o seu dinheiro em um único fluxo.</h1>
-        <p>Entradas, saídas e metas reunidas em um só painel. Entre para continuar.</p>
-        ${erro}
-        <div class="gate-actions">
-          <button class="btn btn-provider" data-login="google">${IC_GOOGLE}Continuar com Google</button>
-          ${A.apple ? `<button class="btn btn-provider apple" data-login="apple">${IC_APPLE}Continuar com Apple</button>` : ''}
-        </div>
-      </section>`;
+      const intencao = A.intencao === 'criar' || A.intencao === 'entrar' ? A.intencao : '';
+      if (intencao && A.apple) {
+        tela(`<h1>${intencao === 'criar' ? 'Criar um novo CFI' : 'Entrar em um CFI existente'}</h1>
+          <p>Entre com a sua conta para continuar.</p>${erro}
+          <div class="gate-actions">
+            <button class="btn btn-provider" data-login="google">${IC_GOOGLE}Continuar com Google</button>
+            <button class="btn btn-provider apple" data-login="apple">${IC_APPLE}Continuar com Apple</button>
+          </div>${voltar}`);
+      } else {
+        tela(`<h1>Todo o seu dinheiro em um único fluxo.</h1>
+          <p>Entradas, saídas e metas reunidas em um só painel. Como você quer começar?</p>${erro}
+          ${escolha(false)}
+          <p class="gate-txt cfi-google">${IC_GOOGLE}<span>As duas opções pedem o login com a sua conta Google.</span></p>`, 'gate-largo');
+      }
     } else if (A.estado === 'sem-espaco') {
-      v.innerHTML = `<section class="card gate">
-        ${MARCA}
-        <h1>Quase lá</h1>
-        <p>Conectado como ${esc(A.usuario.email || 'sua conta')}. Entre na conta conjunta que você recebeu ou crie uma.</p>
-        <form class="gate-form" id="form-convite">
-          <label for="campo-convite">Código de convite</label>
-          <div class="gate-row"><input id="campo-convite" autocomplete="off" maxlength="20" required><button class="btn btn-ink btn-sm" type="submit">Entrar</button></div>
-        </form>
-        <form class="gate-form" id="form-espaco">
-          <label for="campo-espaco">Criar uma conta conjunta</label>
-          <div class="gate-row"><input id="campo-espaco" value="Conta conjunta" maxlength="80" required><button class="btn btn-ghost btn-sm" type="submit">Criar</button></div>
-        </form>
-        <p class="form-err gate-err" id="gate-erro" role="alert" hidden></p>
-        <button class="linkbtn" data-sair>Sair e usar outra conta</button>
-      </section>`;
+      const intencao = A.intencao || (A.pedido ? 'entrar' : '');
+      if (intencao === 'criar' && A.podeCriar) {
+        tela(`<h1>Configure o seu CFI</h1>
+          <p>Antes de abrir o painel, conte como ele vai ser. Os nomes aparecem nas telas, e só você e quem você autorizar veem os dados.</p>
+          ${formCriar(false)}${voltar}${sairLink()}`, 'gate-largo');
+      } else if (intencao === 'criar') {
+        tela(`<h1>Não encontramos a sua compra</h1>
+          <p>O e-mail <b>${esc(A.usuario.email || '')}</b> não está ligado a uma compra do Controle Financeiro Integrado.</p>
+          <p class="gate-txt">Entre com o e-mail usado na compra. Se quem comprou foi o seu namorado(a) ou cônjuge, entre no CFI dele(a).</p>
+          <div class="gate-actions"><button class="btn btn-ink" data-intencao="entrar">Entrar em um CFI existente</button></div>
+          ${voltar}${sairLink()}`);
+      } else if (intencao === 'entrar') {
+        tela(`<h1>Entrar em um CFI existente</h1>
+          <p>Use o CFI que o seu namorado(a) ou cônjuge comprou. Ele(a) precisa ter cadastrado o seu e-mail e autorizar a sua entrada.</p>
+          ${formEntrar()}${voltar}${sairLink()}`, 'gate-largo');
+      } else {
+        tela(`<h1>Quase lá</h1><p>Como você quer começar?</p>${escolha(true)}${sairLink()}`, 'gate-largo');
+      }
+    } else if (A.estado === 'pedido') {
+      tela(`<h1>Pedido enviado</h1>
+        <p>Aguardando <b>${esc(A.pedido.nome_titular || 'o titular')}</b> autorizar a sua entrada. Assim que autorizar, o CFI abre aqui sozinho.</p>
+        <p class="gate-txt">Peça para ele(a) abrir o Controle Financeiro Integrado: o pedido aparece no topo da tela, com o seu nome e o seu e-mail.</p>
+        ${erroGate}
+        <div class="gate-actions"><button class="btn btn-ink btn-sm" data-conferir>Verificar agora</button><button class="btn btn-ghost btn-sm" data-cancelar-pedido>Cancelar pedido</button></div>
+        ${sairLink()}`);
+    } else if (A.estado === 'configurar') {
+      tela(`<h1>Complete o seu CFI</h1>
+        <p>Agora cada CFI tem os próprios nomes. Preencha uma vez; os seus lançamentos continuam onde estão.</p>
+        ${formCriar(true)}${sairLink()}`, 'gate-largo');
+    } else if (A.estado === 'aguardando-config') {
+      tela(`<h1>Quase pronto</h1>
+        <p>O titular do seu CFI precisa entrar uma vez para completar os nomes. Depois disso, o painel abre aqui.</p>
+        <div class="gate-actions"><button class="btn btn-ink btn-sm" data-tentar>Verificar de novo</button></div>${sairLink()}`);
     } else {
       v.innerHTML = `<section class="card gate">${MARCA}<h1>Algo não saiu como esperado</h1>${erro}
         <div class="gate-actions">${A.usuario ? '<button class="btn btn-ink btn-sm" data-tentar>Tentar de novo</button>' : ''}</div>
@@ -532,22 +643,46 @@
     }
   }
 
+  /* Pedido de entrada no topo de todas as telas do titular, até ele responder. */
+  function pedidosHTML() {
+    if (!A.ativo || A.papel !== 'owner' || !A.pedidos.length) return '';
+    return A.pedidos.map(p => `<section class="card pedido" role="alert" aria-label="Pedido para entrar no seu CFI">
+      <div class="pedido-txt">
+        <span class="pedido-tag">Pedido de entrada</span>
+        <p><b>${esc(p.nome || p.email)}</b> (<b>${esc(p.email)}</b>) quer entrar no seu Controle Financeiro Integrado como <b>${esc(nomeDe('parceiro'))}</b>.</p>
+        <small>Confira o nome e o e-mail antes de autorizar: quem entra vê e lança em todas as áreas do CFI.</small>
+      </div>
+      <div class="pedido-acoes">
+        <button class="btn btn-ink btn-sm" data-pedido-sim="${esc(p.id)}">Autorizar</button>
+        <button class="btn btn-ghost btn-sm" data-pedido-nao="${esc(p.id)}">Recusar</button>
+      </div>
+    </section>`).join('');
+  }
+
   function renderConta() {
-    const w = A.espaco, vagas = w.max_members - A.membros.length;
-    const papel = { owner: 'Titular', member: 'Membro' };
+    const w = A.espaco, conj = w.plan === 'conjunto';
+    const papel = { owner: 'Titular', member: 'Parceiro(a)' };
+    const parceiroDentro = A.membros.some(m => m.role !== 'owner');
+    const areas = perfisNav().map(([, l]) => `<li>${esc(l)}</li>`).join('');
+    const trocar = conj && A.papel === 'owner' && !parceiroDentro ? `<section class="card panel">
+        <div class="panel-h"><h2>Parceiro(a)</h2><span class="panel-note">Ainda não entrou</span></div>
+        <p class="muted">Peça para ${esc(nomeDe('parceiro'))} abrir o site, entrar com o Google usando <b>${esc(w.email_parceiro || '')}</b>, escolher <b>Entrar em um CFI existente</b> e digitar o seu e-mail (<b>${esc(A.usuario.email || '')}</b>). O pedido aparece aqui para você autorizar.</p>
+        <form class="cfi-form cfi-linha" id="form-parceiro" novalidate>
+          <div class="cfi-campo"><label for="pc-nome">Nome</label><input id="pc-nome" name="nome" maxlength="40" value="${esc(w.nome_parceiro || '')}"></div>
+          <div class="cfi-campo"><label for="pc-email">E-mail Google</label><input id="pc-email" name="email" type="email" maxlength="120" value="${esc(w.email_parceiro || '')}"></div>
+          <button class="btn btn-ghost btn-sm" type="submit">Salvar</button>
+          ${erroGate}
+        </form>
+      </section>` : '';
     $('#view').innerHTML = `${pageHead('Minha conta', '<button class="btn btn-ghost btn-sm" data-sair>Sair</button>')}
       <section class="card panel">
-        <div class="panel-h"><h2>${esc(w.name)}</h2><span class="panel-note">${A.membros.length} de ${w.max_members} contas</span></div>
-        <ul class="members">${A.membros.map(m => `<li><span><b>${esc(m.display_name || m.email || 'Conta')}</b>${m.user_id === A.usuario.id ? ' (você)' : ''}<small>${esc(m.email || '')}</small></span><span class="tag">${papel[m.role] || m.role}</span></li>`).join('')}</ul>
+        <div class="panel-h"><h2>Controle Financeiro Integrado de ${esc(w.nome_titular || w.name)}</h2><span class="panel-note">${conj ? 'Conta conjunta' : 'Conta individual'} · ${A.membros.length} de ${w.max_members} ${w.max_members > 1 ? 'contas' : 'conta'}</span></div>
+        <ul class="members">${A.membros.map(m => `<li><span><b>${esc(m.role === 'owner' ? (w.nome_titular || m.display_name || m.email) : (w.nome_parceiro || m.display_name || m.email))}</b>${m.user_id === A.usuario.id ? ' (você)' : ''}<small>${esc(m.email || '')}</small></span><span class="tag">${papel[m.role] || m.role}</span></li>`).join('')}</ul>
+        <h3 class="sub">Áreas do seu CFI</h3>
+        <ul class="cfi-areas">${areas}</ul>
+        <p class="muted">Os dados deste CFI são só seus${conj ? ' e de quem você autorizou' : ''}. Nenhum outro cliente vê nomes, valores ou lançamentos.</p>
       </section>
-      ${vagas > 0 ? `<section class="card panel">
-        <div class="panel-h"><h2>Convidar a outra pessoa</h2></div>
-        <p class="muted">Peça para ela entrar no site com a própria conta e informar este código. Os dados de vocês passam a ser os mesmos.</p>
-        <div class="invite"><code id="codigo-convite">${esc(w.invite_code)}</code>
-          <button class="btn btn-ink btn-sm" data-copiar>Copiar</button>
-          ${A.papel === 'owner' ? '<button class="btn btn-ghost btn-sm" data-novo-convite>Gerar outro código</button>' : ''}
-        </div>
-      </section>` : ''}
+      ${trocar}
       ${footer('Minha conta')}`;
   }
 
@@ -576,6 +711,7 @@
       } else a.removeAttribute('aria-current');
     });
     if (A.ativo) { const cta = $('#topcta'); cta.textContent = 'Conta'; cta.href = '#conta'; }
+    else $('#topcta').href = '#titular';
     $('#mainnav a[data-nav="lancamentos"]').href = '#' + ui.lastLanc;
     $('#mainnav a[data-nav="dashboards"]').href = '#' + ui.lastProfile;
   }
@@ -589,7 +725,7 @@
     const bloqueado = A.ativo && A.estado !== 'pronto';
     document.body.classList.toggle('portao', bloqueado);
     if (bloqueado) {
-      if (ROUTES[h]) A.guardarDestino(h);
+      if (h && !LANDING_ANCHORS.includes(h)) A.guardarDestino(h);
       document.title = 'Controle Financeiro Integrado';
       landing.hidden = true;
       app.hidden = false;
@@ -599,7 +735,7 @@
       return;
     }
 
-    const r = ROUTES[h];
+    const r = rotas()[h];
     if (r && r.conta && !A.ativo) { location.replace('#inicio'); return; }
 
     if (!r) {
@@ -628,8 +764,9 @@
     pnav.hidden = !r.perfil;
     if (r.perfil) {
       const isLanc = !!r.lanc;
-      $('#profile-seg').innerHTML = PERFIS.map(([k, l, d, la]) => `<a href="#${isLanc ? la : d}" class="${r.perfil === k ? 'on' : ''}"${r.perfil === k ? ' aria-current="true"' : ''}>${l}</a>`).join('');
-      const per = PERFIS.find(x => x[0] === r.perfil);
+      const lista = perfisNav();
+      $('#profile-seg').innerHTML = lista.map(([k, l, d, la]) => `<a href="#${isLanc ? la : d}" class="${r.perfil === k ? 'on' : ''}"${r.perfil === k ? ' aria-current="true"' : ''}>${esc(l)}</a>`).join('');
+      const per = lista.find(x => x[0] === r.perfil);
       $('#view-seg').innerHTML = `<a href="#${per[2]}" class="${!isLanc ? 'on' : ''}">Dashboard</a><a href="#${per[3]}" class="${isLanc ? 'on' : ''}">Lançamentos</a>`;
     }
 
@@ -640,6 +777,7 @@
     else if (r.rel) renderRelatorios();
     else if (r.conta) renderConta();
     else if (r.agentes) AG.render();
+    $('#view').insertAdjacentHTML('afterbegin', pedidosHTML());
 
     if (scroll) window.scrollTo(0, 0);
   }
@@ -652,7 +790,11 @@
 
   view.addEventListener('change', e => {
     const t = e.target;
-    const h = location.hash.slice(1), r = ROUTES[h] || {};
+    if (t.name === 'tipo' && t.closest('#form-criar')) {
+      $$('#form-criar .cfi-conjunto').forEach(x => { x.hidden = t.value !== 'conjunto'; });
+      return;
+    }
+    const h = location.hash.slice(1), r = rotas()[h] || {};
     if (t.classList.contains('plan-input')) {
       const txt = t.value.trim();
       const v = txt === '' ? 0 : Math.round(parseValor(txt) * 100) / 100;
@@ -690,18 +832,68 @@
     if (again) again.focus();
   });
 
-  async function enviarPortao(form, acao) {
+  async function enviarPortao(btn, acao) {
     const erro = $('#gate-erro');
-    erro.hidden = true;
-    const btn = $('button', form);
+    if (erro) erro.hidden = true;
     btn.disabled = true;
     const msg = await acao();
-    if (msg) { erro.textContent = msg; erro.hidden = false; btn.disabled = false; }
+    if (msg && document.body.contains(btn)) {
+      const e2 = $('#gate-erro');
+      if (e2) { e2.textContent = msg; e2.hidden = false; } else toast(msg);
+      btn.disabled = false;
+    }
+    return msg;
+  }
+  const falhaGate = (msg, campo) => {
+    const erro = $('#gate-erro');
+    erro.textContent = msg; erro.hidden = false;
+    if (campo) { campo.setAttribute('aria-invalid', 'true'); campo.focus(); }
+  };
+  const emailOk = v => /^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(v);
+
+  function enviarCriar(form) {
+    const el = form.elements;
+    $$('[aria-invalid]', form).forEach(x => x.removeAttribute('aria-invalid'));
+    const tipo = form.querySelector('input[name="tipo"]:checked').value;
+    const c = { tipo, titular: el.titular.value.trim(), empresa: el.empresa.value.trim() };
+    if (!c.titular) return falhaGate('Informe o seu nome.', el.titular);
+    if (tipo === 'conjunto') {
+      c.parceiro = el.parceiro.value.trim();
+      c.email = el.email.value.trim().toLowerCase();
+      if (!c.parceiro) return falhaGate('Informe o nome do(a) parceiro(a).', el.parceiro);
+      if (!emailOk(c.email)) return falhaGate('Informe o e-mail Google do(a) parceiro(a), por exemplo nome@gmail.com.', el.email);
+      if (A.usuario && c.email === String(A.usuario.email || '').toLowerCase()) return falhaGate('O e-mail do(a) parceiro(a) precisa ser diferente do seu.', el.email);
+    }
+    if (!c.empresa) return falhaGate('Informe o nome da empresa.', el.empresa);
+    enviarPortao($('button[type="submit"]', form), () => A.configurarCFI(c));
+  }
+
+  async function enviarProcurar(form) {
+    const campo = form.elements.email, email = campo.value.trim().toLowerCase();
+    campo.removeAttribute('aria-invalid');
+    if (!emailOk(email)) return falhaGate('Digite o e-mail de quem comprou, por exemplo nome@gmail.com.', campo);
+    if (A.usuario && email === String(A.usuario.email || '').toLowerCase()) return falhaGate('Digite o e-mail do seu namorado(a) ou cônjuge, não o seu.', campo);
+    let achado = null;
+    const msg = await enviarPortao($('button[type="submit"]', form), async () => {
+      const r = await A.procurarCFI(email);
+      achado = r.nome || null;
+      return r.erro || '';
+    });
+    if (!msg && achado) { ui.entrar = { email, nome: achado }; route(); }
+  }
+
+  async function enviarParceiro(form) {
+    const el = form.elements, nome = el.nome.value.trim(), email = el.email.value.trim().toLowerCase();
+    if (!nome) return falhaGate('Informe o nome do(a) parceiro(a).', el.nome);
+    if (!emailOk(email)) return falhaGate('Informe um e-mail válido.', el.email);
+    const msg = await enviarPortao($('button[type="submit"]', form), () => A.trocarParceiro(nome, email));
+    if (!msg) { route(); toast('Dados do(a) parceiro(a) salvos.'); }
   }
 
   view.addEventListener('submit', e => {
-    if (e.target.id === 'form-convite') { e.preventDefault(); enviarPortao(e.target, () => A.aceitarConvite($('#campo-convite').value)); return; }
-    if (e.target.id === 'form-espaco') { e.preventDefault(); enviarPortao(e.target, () => A.criarEspaco($('#campo-espaco').value)); return; }
+    if (e.target.id === 'form-criar') { e.preventDefault(); enviarCriar(e.target); return; }
+    if (e.target.id === 'form-procurar') { e.preventDefault(); enviarProcurar(e.target); return; }
+    if (e.target.id === 'form-parceiro') { e.preventDefault(); enviarParceiro(e.target); return; }
     if (e.target.matches('form.lform')) { e.preventDefault(); submitForm(e.target); return; }
     if (AG.submit(e.target)) e.preventDefault();
   });
@@ -720,18 +912,34 @@
     const b = e.target.closest('button');
     if (!b) return;
     if (b.dataset.login) { b.disabled = true; A.entrar(b.dataset.login); return; }
+    if ('intencao' in b.dataset) {
+      const v = b.dataset.intencao || null;
+      ui.entrar = { email: '', nome: '' };
+      A.definirIntencao(v);
+      /* Antes do login, escolher já leva ao Google (com Apple ligado, mostra os dois). */
+      if (v && A.estado === 'anonimo' && !A.apple) { b.disabled = true; A.entrar('google'); }
+      return;
+    }
+    if ('entrarVoltar' in b.dataset) { ui.entrar.nome = ''; route(); return; }
+    if ('pedir' in b.dataset) {
+      enviarPortao(b, () => A.pedirEntrada(ui.entrar.email)).then(msg => { if (!msg) ui.entrar = { email: '', nome: '' }; });
+      return;
+    }
+    if ('cancelarPedido' in b.dataset) { enviarPortao(b, () => A.cancelarPedido()); return; }
+    if ('conferir' in b.dataset) { A.conferirPedido(); return; }
+    if (b.dataset.pedidoSim || b.dataset.pedidoNao) {
+      const sim = !!b.dataset.pedidoSim;
+      const ped = A.pedidos.find(x => x.id === (b.dataset.pedidoSim || b.dataset.pedidoNao));
+      b.closest('.pedido').querySelectorAll('button').forEach(x => { x.disabled = true; });
+      A.responderPedido(ped.id, sim).then(msg => {
+        route();
+        toast(msg || (sim ? `${ped.nome || ped.email} agora faz parte do seu CFI.` : 'Pedido recusado.'));
+      });
+      return;
+    }
     if (AG.click(b)) return;
     if ('sair' in b.dataset) { history.replaceState(null, '', location.pathname); A.sair(); return; }
     if ('tentar' in b.dataset) { A.tentarDeNovo(); return; }
-    if ('copiar' in b.dataset) {
-      const code = $('#codigo-convite').textContent;
-      navigator.clipboard.writeText(code).then(() => toast('Código copiado.'), () => toast('Copie o código manualmente: ' + code));
-      return;
-    }
-    if ('novoConvite' in b.dataset) {
-      A.novoConvite().then(msg => { if (msg) toast(msg); else { route(); toast('Novo código gerado. O anterior deixou de funcionar.'); } });
-      return;
-    }
     if (b.dataset.mode) { ui.mode = b.dataset.mode; route(); return; }
     if (b.dataset.aba) { captureDrafts(); ui.empresaAba = b.dataset.aba; route(); return; }
     if (b.dataset.sort) {
@@ -763,9 +971,12 @@
   /* Mudança de sessão: ao concluir o login, segue para a tela que a pessoa pediu. */
   window.addEventListener('cfi:auth', () => {
     if (A.estado === 'pronto') { const d = A.pegarDestino(); if (d && '#' + d !== location.hash) { location.hash = d; return; } }
-    if (A.estado === 'anonimo') { ui.drafts = {}; AG.limpar(); window.dispatchEvent(new Event('cfi:landing')); }
+    if (A.estado === 'anonimo' || A.estado === 'sem-espaco') { ui.drafts = {}; AG.limpar(); }
+    if (A.estado === 'pronto') { ui.card = {}; ui.catIn = {}; ui.catOut = {}; window.dispatchEvent(new Event('cfi:landing')); }
     route();
   });
+  /* Pedido novo ou respondido em outro aparelho: atualiza o aviso e a conta. */
+  window.addEventListener('cfi:pedidos', () => { if (A.estado === 'pronto') redesenhar(); });
   window.addEventListener('cfi:aviso', e => toast(e.detail));
 
   /* Dados que chegaram do outro aparelho. O texto digitado nos formulários é

@@ -1,0 +1,188 @@
+{
+  "tipos": [
+    "Único",
+    "Recorrente",
+    "Parcelado"
+  ],
+  "formas": {
+    "saida": [
+      "Crédito",
+      "Débito",
+      "Débito Aut.",
+      "PIX",
+      "Transferência",
+      "Boleto"
+    ],
+    "entrada": [
+      "PIX",
+      "Transferência",
+      "Boleto",
+      "Dinheiro"
+    ],
+    "empSaida": [
+      "PIX",
+      "Crédito",
+      "Débito",
+      "PIX Corp",
+      "Crédito PJ",
+      "Débito Aut.",
+      "Boleto",
+      "Transferência"
+    ],
+    "empEntrada": [
+      "PIX",
+      "Boleto",
+      "Transferência",
+      "PIX Corp"
+    ]
+  },
+  "modelo": {
+    "titular": {
+      "catIn": [
+        "SALÁRIO",
+        "RENDA EXTRA",
+        "VENDAS",
+        "OUTROS"
+      ],
+      "descIn": {
+        "RENDA EXTRA": "Bicos, freelas e serviços avulsos"
+      },
+      "catOut": [
+        "CASA",
+        "ALIMENTAÇÃO",
+        "TRANSPORTE",
+        "COMBUSTÍVEL",
+        "SAÚDE",
+        "EDUCAÇÃO",
+        "ROUPA",
+        "CABELO E BELEZA",
+        "LAZER",
+        "ASSINATURAS",
+        "INTERNET E CELULAR",
+        "SEGUROS",
+        "JUROS E TARIFAS",
+        "OUTROS"
+      ],
+      "descOut": {
+        "CASA": "Aluguel, condomínio e contas pessoais da casa",
+        "ASSINATURAS": "Streaming, apps e armazenamento",
+        "JUROS E TARIFAS": "Juros de cartão, IOF e tarifas bancárias"
+      },
+      "cartoes": [
+        "NUBANK",
+        "ITAÚ",
+        "INTER",
+        "SANTANDER"
+      ],
+      "conta": ""
+    },
+    "parceiro": {
+      "catIn": [
+        "SALÁRIO",
+        "RENDA EXTRA",
+        "VENDAS",
+        "OUTROS"
+      ],
+      "descIn": {
+        "RENDA EXTRA": "Bicos, freelas e serviços avulsos"
+      },
+      "catOut": [
+        "CASA",
+        "ALIMENTAÇÃO",
+        "TRANSPORTE",
+        "COMBUSTÍVEL",
+        "SAÚDE",
+        "EDUCAÇÃO",
+        "ROUPA",
+        "CABELO E BELEZA",
+        "LAZER",
+        "ASSINATURAS",
+        "INTERNET E CELULAR",
+        "SEGUROS",
+        "JUROS E TARIFAS",
+        "OUTROS"
+      ],
+      "descOut": {
+        "CASA": "Aluguel, condomínio e contas pessoais da casa",
+        "ASSINATURAS": "Streaming, apps e armazenamento",
+        "JUROS E TARIFAS": "Juros de cartão, IOF e tarifas bancárias"
+      },
+      "cartoes": [
+        "NUBANK",
+        "ITAÚ",
+        "INTER",
+        "SANTANDER"
+      ],
+      "conta": ""
+    },
+    "casa": {
+      "catIn": [],
+      "catOut": [
+        "ALIMENTAÇÃO",
+        "INSUMOS CASA",
+        "LUZ & ÁGUA",
+        "INTERNET",
+        "HIGIENE PESSOAL",
+        "LAZER",
+        "VIAGENS",
+        "INVESTIMENTOS"
+      ],
+      "cartoes": []
+    },
+    "empresa": {
+      "catIn": [
+        "R-P (Vendas)",
+        "R-P (Produtos)",
+        "R-S (Serviços)"
+      ],
+      "catOut": [
+        "D-RH (Folha)",
+        "D-MKT (Marketing)",
+        "D-O (Operacional)",
+        "D-O (Impostos)",
+        "D-O (Fornecedores)"
+      ],
+      "descOut": {
+        "D-O (Impostos)": "DAS, impostos e taxas",
+        "D-O (Fornecedores)": "Materiais e mercadorias"
+      },
+      "contaPJ": "CONTA PJ"
+    },
+    "casalCats": [
+      [
+        "ALIMENTAÇÃO & INSUMOS",
+        [
+          "ALIMENTAÇÃO",
+          "INSUMOS CASA"
+        ]
+      ],
+      [
+        "LUZ, ÁGUA, INTERNET",
+        [
+          "LUZ & ÁGUA",
+          "INTERNET"
+        ]
+      ],
+      [
+        "HIGIENE PESSOAL",
+        [
+          "HIGIENE PESSOAL"
+        ]
+      ],
+      [
+        "LAZER & VIAGENS",
+        [
+          "LAZER",
+          "VIAGENS"
+        ]
+      ],
+      [
+        "INVESTIMENTOS & RESERVA",
+        [
+          "INVESTIMENTOS"
+        ]
+      ]
+    ],
+    "caixaComEmpresa": false
+  }
+}

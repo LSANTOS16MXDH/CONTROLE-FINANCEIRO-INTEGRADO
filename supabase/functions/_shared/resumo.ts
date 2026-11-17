@@ -1,5 +1,5 @@
 // Visão financeira para o CFO: resumo compacto e ferramentas de consulta.
-import { PERFIS } from './lancamento.ts';
+import type { Perfis } from './perfis.ts';
 
 export interface Lanc {
   id?: string; profile: string; kind: 'in' | 'out'; cat: string; obs: string; val: number | string;
@@ -25,12 +25,12 @@ function somarMeses(ym: string, n: number): string {
 }
 
 /** Resumo em JSON compacto: 12 meses para trás e 3 para frente, por perfil. */
-export function resumir(linhas: Lanc[], alvos: Alvo[], hoje: string) {
+export function resumir(linhas: Lanc[], alvos: Alvo[], hoje: string, perfisDoCfi: Perfis) {
   const atual = mes(hoje);
   const meses = mesesEntre(somarMeses(atual, -11), somarMeses(atual, 3));
   const perfis: Record<string, unknown> = {};
 
-  for (const [id, p] of Object.entries(PERFIS)) {
+  for (const [id, p] of Object.entries(perfisDoCfi)) {
     const doPerfil = linhas.filter(l => l.profile === id);
     if (!doPerfil.length) { perfis[id] = { nome: p.nome, sem_lancamentos: true }; continue; }
     const porMes = meses.map(m => {
@@ -67,9 +67,10 @@ export function resumir(linhas: Lanc[], alvos: Alvo[], hoje: string) {
 
 // ---------- Ferramentas ----------
 
-const perfisValidos = () => Object.keys(PERFIS);
-
-export const FERRAMENTAS = [
+/** Ferramentas do CFO, com a lista fechada dos perfis do CFI. */
+export const ferramentas = (perfis: Perfis) => {
+  const perfisValidos = () => Object.keys(perfis);
+  return [
   {
     name: 'consultar_lancamentos',
     description: 'Lista lançamentos com filtros, mais recentes primeiro, com a soma dos valores. Use para detalhar um gasto, uma categoria, um período ou contas pendentes.',
@@ -101,7 +102,8 @@ export const FERRAMENTAS = [
       required: ['tipo', 'de', 'ate']
     }
   }
-];
+  ];
+};
 
 // deno-lint-ignore no-explicit-any
 type Args = Record<string, any>;

@@ -2,14 +2,15 @@
 // financeiro do espaço e conversa com o Gemini usando ferramentas de consulta.
 import type { SupabaseClient } from 'npm:@supabase/supabase-js@2.118.0';
 import { carregarDados, hojeSP, diaDaSemanaSP } from '../_shared/comum.ts';
-import { resumir, FERRAMENTAS, executarFerramenta } from '../_shared/resumo.ts';
+import { resumir, ferramentas, executarFerramenta } from '../_shared/resumo.ts';
+import { carregarPerfis } from '../_shared/perfis.ts';
 import type { Conteudo, Json } from '../_shared/gemini.ts';
 import { instrucoesCFO } from './prompt.ts';
 
 export interface Deps {
   db: SupabaseClient;
   conversar: (o: {
-    sistema: string; historico: Conteudo[]; ferramentas: typeof FERRAMENTAS;
+    sistema: string; historico: Conteudo[]; ferramentas: ReturnType<typeof ferramentas>;
     executar: (nome: string, args: Json) => Promise<Json>;
   }) => Promise<{ texto: string; modelo: string; passos: number }>;
   agora?: () => Date;
@@ -76,13 +77,13 @@ export function criarHandler(d: Deps) {
     historico.push({ role: 'user', parts: [{ text: pergunta }] });
 
     try {
-      const { linhas, alvos } = await carregarDados(d.db, ws);
+      const [{ linhas, alvos }, perfis] = await Promise.all([carregarDados(d.db, ws), carregarPerfis(d.db, ws)]);
       const hoje = hojeSP(agora());
-      const resumo = JSON.stringify(resumir(linhas, alvos, hoje));
+      const resumo = JSON.stringify(resumir(linhas, alvos, hoje, perfis));
       const { texto, modelo, passos } = await d.conversar({
-        sistema: instrucoesCFO(resumo, hoje, diaDaSemanaSP(agora()), quem),
+        sistema: instrucoesCFO(resumo, hoje, diaDaSemanaSP(agora()), quem, perfis),
         historico,
-        ferramentas: FERRAMENTAS,
+        ferramentas: ferramentas(perfis),
         executar: async (nome, args) => executarFerramenta(nome, args, linhas, hoje)
       });
       const { error } = await d.db.from('cfo_mensagens').insert({ workspace_id: ws, user_id: null, papel: 'cfo', texto: texto.slice(0, 20000) });

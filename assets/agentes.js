@@ -45,11 +45,11 @@
     return out.join('');
   }
 
-  const SUGESTOES = [
-    'Como está nossa saúde financeira este mês?',
-    'Onde estamos gastando mais do que deveríamos?',
+  const sugestoes = (F) => [
+    F.CFI.casal ? 'Como está nossa saúde financeira este mês?' : 'Como está minha saúde financeira este mês?',
+    F.CFI.casal ? 'Onde estamos gastando mais do que deveríamos?' : 'Onde estou gastando mais do que deveria?',
     'Monte um plano para quitar o cartão e montar uma reserva.',
-    'Como está o resultado da Sixteen Design no ano?'
+    `Como está o resultado da ${F.PROFILES.empresa.nome} no ano?`
   ];
 
   window.AGENTES = function (ctx) {
@@ -63,8 +63,8 @@
     };
     const perfilPadrao = () => {
       if (st.perfil) return st.perfil;
-      const nome = (nomeMembro(A.usuario && A.usuario.id) + ' ' + ((A.usuario && A.usuario.email) || '')).toLowerCase();
-      return Object.keys(F.PROFILES).find(p => nome.includes(F.PROFILES[p].curto.toLowerCase())) || 'luiz';
+      /* Quem comprou lança como titular; quem foi autorizado, como parceiro(a). */
+      return A.papel === 'member' && F.PROFILES.parceiro ? 'parceiro' : 'titular';
     };
     const fone = n => {
       const d = String(n);
@@ -119,7 +119,7 @@
               <li><b>“comprei uma blusa de 300 em 3x no nubank”</b></li>
               <li><b>“recebi 850 das entregas no pix”</b></li>
               <li>Uma <b>foto ou PDF</b> do comprovante, ou um <b>áudio</b> contando o gasto.</li>
-              <li>Diga se é da <b>casa</b> ou da <b>empresa</b>. Responda <b>desfazer</b> para apagar o último lançamento.</li>
+              <li>Diga se é ${F.CFI.casal ? 'da <b>casa</b> ou ' : ''}da <b>empresa</b>. Responda <b>desfazer</b> para apagar o último lançamento.</li>
             </ul>
           </div>
         </div>
@@ -135,11 +135,13 @@
       const bolha = m => m.papel === 'cfo'
         ? `<div class="msg cfo"><span class="msg-av">${AVATAR.cfo}</span><div class="msg-b md">${md(m.texto, esc)}<small>CFO · ${horaBR(m.created_at)}</small></div></div>`
         : `<div class="msg eu"><div class="msg-b"><p>${esc(m.texto).replace(/\n/g, '<br>')}</p><small>${esc(nomeMembro(m.user_id))} · ${horaBR(m.created_at)}</small></div></div>`;
-      const vazio = `<div class="cfo-vazio"><p>Pergunte sobre qualquer área: Luiz, Cleide, a casa ou a Sixteen Design. O CFO lê todos os lançamentos, metas e limites antes de responder.</p>
-        <div class="cfo-sug">${SUGESTOES.map(s => `<button class="chip" data-ag-sugestao="${esc(s)}">${esc(s)}</button>`).join('')}</div></div>`;
+      const areas = Object.keys(F.PROFILES).map(p => (p === 'casa' ? 'a casa' : p === 'empresa' ? 'a ' + F.PROFILES[p].nome : F.PROFILES[p].nome));
+      const listaAreas = areas.length > 1 ? areas.slice(0, -1).join(', ') + ' ou ' + areas[areas.length - 1] : areas[0];
+      const vazio = `<div class="cfo-vazio"><p>Pergunte sobre qualquer área: ${esc(listaAreas)}. O CFO lê todos os lançamentos, metas e limites antes de responder.</p>
+        <div class="cfo-sug">${sugestoes(F).map(s => `<button class="chip" data-ag-sugestao="${esc(s)}">${esc(s)}</button>`).join('')}</div></div>`;
       return `<section class="card agente ag-cfo">
         <div class="ag-topo">${AVATAR.cfo}
-          <div><h2>CFO</h2><p>Diretor financeiro da família e da empresa: diagnóstico, riscos, metas e próximos passos com base nos seus números.</p></div>
+          <div><h2>CFO</h2><p>Diretor financeiro ${F.CFI.casal ? 'da família' : 'pessoal'} e da empresa: diagnóstico, riscos, metas e próximos passos com base nos seus números.</p></div>
           ${msgs.length ? '<button class="btn btn-ghost btn-sm" data-ag-limpar>Nova conversa</button>' : ''}
         </div>
         <div class="cfo-chat" id="cfo-chat" aria-live="polite">

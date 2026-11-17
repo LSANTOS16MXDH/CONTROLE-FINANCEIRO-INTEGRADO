@@ -2,7 +2,8 @@
 // hora e processa cada mensagem em segundo plano.
 import type { SupabaseClient } from 'npm:@supabase/supabase-js@2.118.0';
 import { encodeBase64 } from 'jsr:@std/encoding@1.0.10/base64';
-import { esquemaExtracao, montarLinhas, PERFIS, type Extraido, type Linha } from '../_shared/lancamento.ts';
+import { esquemaExtracao, montarLinhas, type Extraido, type Linha } from '../_shared/lancamento.ts';
+import { carregarPerfis, type Perfis } from '../_shared/perfis.ts';
 import { hojeSP, diaDaSemanaSP } from '../_shared/comum.ts';
 import type { Parte } from '../_shared/gemini.ts';
 import { instrucoes } from './prompt.ts';
@@ -55,9 +56,9 @@ export function criarHandler(d: Deps) {
         .eq('phone', phone).eq('status', status).gte('created_at', desde(horas));
       return count ?? 0;
     };
-    const nomeDe = async (userId: string, perfil: string) => {
+    const nomeDe = async (userId: string, perfil: string, perfis: Perfis) => {
       const { data } = await d.db.from('workspace_members').select('display_name,email').eq('user_id', userId).limit(1).maybeSingle();
-      return primeiroNome(data?.display_name || data?.email, PERFIS[perfil]?.curto ?? '');
+      return primeiroNome(data?.display_name || data?.email, perfis[perfil]?.curto ?? '');
     };
 
     const texto = String(msg.type === 'text' ? msg.text?.body ?? '' : msg.image?.caption ?? msg.document?.caption ?? '').trim();
@@ -81,7 +82,8 @@ export function criarHandler(d: Deps) {
       if (error) throw error;
       await d.db.from('whatsapp_codigos').delete().eq('codigo', cod[1].toUpperCase());
       await marcar('vinculado', { workspace_id: c.workspace_id });
-      await responder(R.boasVindas(await nomeDe(c.user_id, c.profile), c.profile), false);
+      const perfisNovo = await carregarPerfis(d.db, c.workspace_id);
+      await responder(R.boasVindas(await nomeDe(c.user_id, c.profile, perfisNovo), perfisNovo[c.profile]?.nome ?? c.profile), false);
       return;
     }
     if (!vinc) {
@@ -91,7 +93,8 @@ export function criarHandler(d: Deps) {
       return;
     }
     await marcar('recebida', { workspace_id: vinc.workspace_id });
-    const nome = await nomeDe(vinc.user_id, vinc.profile);
+    const perfis = await carregarPerfis(d.db, vinc.workspace_id);
+    const nome = await nomeDe(vinc.user_id, vinc.profile, perfis);
     nomes.set(id, nome);
 
     // ---------- Comandos ----------
@@ -132,7 +135,7 @@ export function criarHandler(d: Deps) {
     if (texto) partes.push({ text: `Mensagem: ${texto}` });
 
     const hoje = hojeSP(agora());
-    const { dados, modelo } = await d.gerarJson({ sistema: instrucoes(vinc.profile, hoje, diaDaSemanaSP(agora()), nome), partes, esquema: esquemaExtracao() });
+    const { dados, modelo } = await d.gerarJson({ sistema: instrucoes(perfis, perfis[vinc.profile] ? vinc.profile : 'titular', hoje, diaDaSemanaSP(agora()), nome), partes, esquema: esquemaExtracao(perfis) });
     const extraidos = Array.isArray(dados.lancamentos) ? dados.lancamentos.slice(0, 5) : [];
     if (!extraidos.length) {
       await marcar('sem_lancamento');
@@ -142,7 +145,7 @@ export function criarHandler(d: Deps) {
 
     const grupos: Linha[][] = [], problemas: string[] = [];
     for (const e of extraidos) {
-      try { grupos.push(montarLinhas(e, hoje)); } catch (err) { problemas.push((err as Error).message); }
+      try { grupos.push(montarLinhas(e, hoje, perfis)); } catch (err) { problemas.push((err as Error).message); }
     }
     if (!grupos.length) {
       await marcar('sem_lancamento');
@@ -157,7 +160,7 @@ export function criarHandler(d: Deps) {
     await marcar('lancada', { entry_ids: linhas.map(l => l.id) });
     log(`lançado via ${modelo}: ${linhas.length} linha(s)`);
     const contexto = grupos.length === 1 ? await contextoDoMes(vinc.workspace_id, grupos[0][0]).catch(() => null) : null;
-    await responder(R.confirmacao({ nome, grupos, hoje, semente: id, contexto, problemas }));
+    await responder(R.confirmacao({ nome, grupos, hoje, semente: id, contexto, problemas, perfis }));
   }
 
   /** Quanto a categoria já soma no mês do lançamento, para dar contexto na resposta. */

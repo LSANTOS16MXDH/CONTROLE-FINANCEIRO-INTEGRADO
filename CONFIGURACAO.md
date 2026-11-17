@@ -7,13 +7,14 @@ O site é estático e fica na Vercel. O login e os dados ficam no Supabase, que 
 1. Crie uma conta em [supabase.com](https://supabase.com) e clique em **New project**.
 2. Escolha a região **South America (São Paulo)** e guarde a senha do banco.
 3. Abra **SQL Editor > New query**, cole todo o conteúdo de [`supabase/schema.sql`](supabase/schema.sql) e clique em **Run**.
-4. Em uma nova consulta, autorize o seu e-mail do Google a criar o espaço (use letras minúsculas):
+4. Em uma nova consulta, rode do mesmo jeito o [`supabase/cfi-acesso.sql`](supabase/cfi-acesso.sql). Ele guarda os nomes de cada CFI e cria os pedidos de entrada do(a) parceiro(a). Pode rodar de novo sem problema.
+5. Cada compra libera um e-mail do Google para criar um CFI (use letras minúsculas):
 
    ```sql
-   insert into public.allowed_creators (email) values ('seu-email@gmail.com');
+   insert into public.allowed_creators (email) values ('email-de-quem-comprou@gmail.com');
    ```
 
-   Rode isso só no Supabase. Não coloque seu e-mail em arquivos do repositório, porque ele é público.
+   Rode isso só no Supabase. Não coloque e-mails em arquivos do repositório, porque ele é público.
 
 ## 2. Publicar o site na Vercel
 
@@ -46,11 +47,25 @@ O site é estático e fica na Vercel. O login e os dados ficam no Supabase, que 
 
 A chave `publishable` pode ficar no repositório, porque as regras do banco protegem os dados. **Nunca** use a chave `secret` ou `service_role` no site.
 
-## 5. Entrar e convidar a segunda pessoa
+## 5. Criar o CFI e entrar em um CFI existente
 
-1. Abra o site, entre com a conta Google autorizada no passo 1 e crie o espaço.
-2. Em **Conta**, copie o código de convite.
-3. A segunda pessoa entra com a própria conta Google e informa o código. O espaço aceita 2 contas; depois disso, o convite é recusado.
+A primeira tela tem duas opções, e as duas pedem o login com Google.
+
+**Quem comprou: Criar um novo CFI**
+
+1. Entra com o e-mail liberado no passo 1.5 e escolhe **Conta conjunta** (titular, parceiro(a), casal e empresa) ou **Conta individual** (titular e empresa).
+2. Dá os nomes: o próprio, o da empresa e, na conjunta, o nome e o **e-mail Google do(a) parceiro(a)**. A área **Casal** não tem nome.
+3. O painel abre com esses nomes em todas as telas.
+
+**O(a) parceiro(a): Entrar em um CFI existente**
+
+1. Entra com o e-mail Google que o titular cadastrou e digita o e-mail de quem comprou.
+2. O site mostra o nome do titular para conferir. Confirmando, o pedido vai para o titular.
+3. O titular vê o pedido no topo de qualquer tela, com o nome e o e-mail de quem pediu, e clica em **Autorizar** ou **Recusar**. Autorizado, o CFI abre sozinho para o(a) parceiro(a).
+
+Só o e-mail cadastrado consegue pedir para entrar. Para qualquer outro e-mail, o site responde que o CFI não existe, sem mostrar nomes. Enquanto o(a) parceiro(a) não entra, o titular pode corrigir o nome e o e-mail em **Conta**.
+
+**Privacidade:** cada CFI só enxerga os próprios nomes, valores e lançamentos; as regras do banco (RLS) barram o acesso de qualquer outra conta. Quem administra o projeto no Supabase (o dono da conta do Supabase) ainda consegue abrir as tabelas pelo painel, como em qualquer sistema na nuvem. Os agentes (WhatsApp e CFO) também precisam ler os lançamentos para funcionar.
 
 ## 6. Login com Apple (opcional)
 
@@ -71,7 +86,7 @@ Os dois agentes usam o **Google Gemini** (Google AI Studio) e rodam em funções
 
 ### 7.1 Banco de dados
 
-No **SQL Editor** do Supabase, cole todo o conteúdo de [`supabase/agentes.sql`](supabase/agentes.sql) e clique em **Run**. Até lá, a tela **Agentes** do site mostra um aviso, e o resto do site funciona normalmente.
+No **SQL Editor** do Supabase, cole todo o conteúdo de [`supabase/agentes.sql`](supabase/agentes.sql) e clique em **Run**. Rode o `cfi-acesso.sql` (passo 1.4) depois dele, se ainda não rodou. Até lá, a tela **Agentes** do site mostra um aviso, e o resto do site funciona normalmente.
 
 ### 7.2 Publicar as funções
 
@@ -87,7 +102,7 @@ npx supabase@2.122.0 functions deploy whatsapp --use-api
 
 Com isso, o **CFO** já funciona na tela **Agentes**. Os modelos podem ser trocados pelos segredos `GEMINI_MODELO` (padrão `gemini-3.8-flash`) e `GEMINI_MODELO_RESERVA` (padrão `gemini-3.5-flash-lite`, usado quando o principal está sobrecarregado ou sem cota).
 
-Sempre que mudar as contas, categorias, formas ou cartões em `assets/data.js`, rode `node scripts/gerar-perfis.mjs` e publique as funções de novo.
+Os agentes leem os nomes e as categorias do CFI de quem está falando. Sempre que mudar o modelo de categorias (`MODELO`), as formas ou os tipos em `assets/data.js`, rode `node scripts/gerar-perfis.mjs` e publique as funções de novo.
 
 ### 7.3 Ligar o WhatsApp (Meta)
 
@@ -123,7 +138,6 @@ npx deno@2.9.6 test --allow-env supabase/functions/_testes/agentes.test.ts
 
 A base já separa os dados de cada cliente por espaço. Ainda falta:
 
-- **Pagamento:** trocar a tabela `allowed_creators` pela confirmação de compra.
-- **Planos:** usar `plan` e `max_members` (`individual` com 1 conta, `conjunto` com 2).
-- **Personalização:** hoje os nomes, as categorias e os cartões estão em `assets/data.js`, iguais para todos. Cada cliente precisará cadastrar os próprios.
+- **Pagamento:** hoje cada compra é liberada à mão em `allowed_creators`. Falta inserir o e-mail automaticamente quando a compra for confirmada.
+- **Categorias próprias:** os nomes já são de cada CFI. As categorias e os cartões vêm de um modelo genérico (`MODELO` em `assets/data.js`); cada CFI pode ter os próprios em `workspaces.estrutura`, mas ainda não há tela para o cliente editar.
 - **Exigências legais:** termos de uso, política de privacidade e adequação à LGPD.

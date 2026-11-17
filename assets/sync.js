@@ -1,5 +1,11 @@
 /* Login e sincronização com o Supabase.
-   Estados: local (sem configuração) | carregando | anonimo | sem-espaco | pronto | erro */
+   Estados: local (sem configuração) | carregando | anonimo | sem-espaco | pedido
+   | configurar | aguardando-config | pronto | erro
+
+   sem-espaco: logado, sem CFI. Cria um (quem comprou) ou pede para entrar.
+   pedido: pediu para entrar no CFI de alguém e espera a autorização.
+   configurar: titular de um CFI antigo, ainda sem os nomes.
+   aguardando-config: membro de um CFI que o titular ainda não configurou. */
 (function () {
   'use strict';
 
@@ -7,11 +13,14 @@
   const F = window.FIN;
   const ativo = !!(cfg.SUPABASE_URL && cfg.SUPABASE_ANON_KEY);
   const DESTINO = 'cfi.destino';
+  const INTENCAO = 'cfi.intencao';
+  const COLUNAS_WS = 'id,name,plan,max_members,nome_titular,nome_parceiro,email_parceiro,nome_empresa,estrutura';
 
   const A = {
     ativo, apple: !!cfg.APPLE_LOGIN,
     estado: ativo ? 'carregando' : 'local',
     usuario: null, espaco: null, membros: [], papel: null, erro: '',
+    pedido: null, pedidos: [], podeCriar: false, intencao: null,
     ehDono: () => !ativo || A.papel === 'owner'
   };
 
@@ -19,10 +28,16 @@
   const definir = (estado, erro) => { A.estado = estado; A.erro = erro || ''; avisar('cfi:auth'); };
 
   const MENSAGENS = {
-    nao_autorizado: 'Esta conta ainda não pode criar um espaço. Se você recebeu um convite, use o código dele.',
-    ja_participa: 'Esta conta já participa de um espaço.',
-    convite_invalido: 'Código de convite não encontrado. Confira o código e tente de novo.',
-    espaco_cheio: 'Este espaço já está com todas as contas ocupadas.'
+    nao_autorizado: 'Este e-mail não tem uma compra do Controle Financeiro Integrado. Entre com o e-mail usado na compra ou, se o seu par já comprou, entre no CFI dele(a).',
+    ja_participa: 'Esta conta já participa de um CFI.',
+    espaco_cheio: 'Este CFI já está com todas as contas ocupadas.',
+    cfi_nao_encontrado: 'Não encontramos um CFI com este e-mail que tenha cadastrado o seu e-mail como parceiro(a). Confira o e-mail digitado e peça para o titular conferir o seu e-mail no cadastro.',
+    nomes_obrigatorios: 'Preencha todos os nomes.',
+    email_invalido: 'Confira o e-mail do(a) parceiro(a).',
+    email_proprio: 'O e-mail do(a) parceiro(a) precisa ser diferente do seu.',
+    tem_parceiro: 'Este CFI já tem duas contas. Para ser individual, ele precisa ter só a sua.',
+    parceiro_ja_entrou: 'O(a) parceiro(a) já entrou no CFI; o e-mail não pode mais ser trocado.',
+    pedido_respondido: 'Este pedido já foi respondido.'
   };
   const traduzir = e => {
     const m = (e && e.message) || '';
@@ -30,7 +45,7 @@
     return k ? MENSAGENS[k] : 'Não foi possível concluir. Verifique a conexão e tente de novo.';
   };
 
-  let db = null, canal = null, canalAgentes = null, timer = 0;
+  let db = null, canal = null, canalAgentes = null, canalEspera = null, timer = 0;
 
   /* ---------- Conversão entre banco e tela ---------- */
   const paraBanco = (p, kind, r) => ({
@@ -102,25 +117,31 @@
   };
 
   /* ---------- Sessão ---------- */
-  function encerrar() {
+  function desligarCanais() {
     if (canal) { db.removeChannel(canal); canal = null; }
+    if (canalEspera) { db.removeChannel(canalEspera); canalEspera = null; }
+  }
+  function encerrar() {
+    desligarCanais();
     if (canalAgentes) { db.removeChannel(canalAgentes); canalAgentes = null; }
     A.agentes = agentesVazio();
     clearTimeout(timer);
     F.desconectarRemoto();
     A.usuario = null; A.espaco = null; A.membros = []; A.papel = null;
+    A.pedido = null; A.pedidos = []; A.podeCriar = false;
   }
 
   async function carregarEspaco() {
     definir('carregando');
+    desligarCanais();
     try {
       const { data: minha, error: e1 } = await db.from('workspace_members')
         .select('workspace_id,role').eq('user_id', A.usuario.id).maybeSingle();
       if (e1) throw e1;
-      if (!minha) { definir('sem-espaco'); return; }
+      if (!minha) { await semEspaco(); return; }
       A.papel = minha.role;
       const [ws, membros] = await Promise.all([
-        db.from('workspaces').select('*').eq('id', minha.workspace_id).single(),
+        db.from('workspaces').select(COLUNAS_WS).eq('id', minha.workspace_id).single(),
         db.from('workspace_members').select('user_id,role,email,display_name,joined_at')
           .eq('workspace_id', minha.workspace_id).order('joined_at')
       ]);
@@ -128,9 +149,19 @@
       if (membros.error) throw membros.error;
       A.espaco = ws.data;
       A.membros = membros.data;
+      A.pedido = null;
+      lembrarIntencao(null);
+      /* CFI criado antes da tela de nomes: o titular completa; o outro espera. */
+      if (!A.espaco.nome_titular) {
+        if (A.papel === 'owner') { definir('configurar'); return; }
+        definir('aguardando-config');
+        return;
+      }
+      F.configurar(A.espaco);
       const d = await baixar();
       F.conectarRemoto(API);
       F.substituir(d.rows, d.cfg);
+      await carregarPedidos();
       ligarTempoReal();
       definir('pronto');
       carregarAgentes(true);
@@ -139,11 +170,59 @@
     }
   }
 
+  /* Sem CFI: vê se já pediu para entrar em um e se pode criar o próprio. */
+  async function semEspaco() {
+    const [ped, pode] = await Promise.all([
+      db.from('pedidos_entrada').select('id,status,nome_titular,created_at')
+        .eq('user_id', A.usuario.id).order('created_at', { ascending: false }).limit(1).maybeSingle(),
+      db.rpc('pode_criar_cfi')
+    ]);
+    if (ped.error) throw ped.error;
+    A.podeCriar = !pode.error && pode.data === true;
+    const p = ped.data;
+    A.pedido = p && (p.status === 'pendente' || p.status === 'recusado') ? p : null;
+    if (A.pedido && A.pedido.status === 'pendente') {
+      esperarResposta();
+      definir('pedido');
+      return;
+    }
+    definir('sem-espaco');
+  }
+
+  /* Quem pediu para entrar vê a resposta do titular na hora. */
+  function esperarResposta() {
+    let espera = 0;
+    canalEspera = db.channel('pedido-' + A.usuario.id)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'pedidos_entrada', filter: `user_id=eq.${A.usuario.id}` }, () => {
+        clearTimeout(espera); espera = setTimeout(() => { if (A.estado === 'pedido') carregarEspaco(); }, 300);
+      })
+      .subscribe();
+  }
+  A.conferirPedido = () => { if (A.usuario) carregarEspaco(); };
+
+  /* Pedidos de entrada esperando a autorização do titular. */
+  async function carregarPedidos() {
+    if (A.papel !== 'owner' || !A.espaco || A.espaco.plan !== 'conjunto') { A.pedidos = []; return; }
+    const { data, error } = await db.from('pedidos_entrada').select('id,email,nome,created_at')
+      .eq('workspace_id', A.espaco.id).eq('status', 'pendente').order('created_at');
+    if (!error) A.pedidos = data;
+  }
+  async function atualizarPedidos() {
+    if (A.estado !== 'pronto') return;
+    const antes = A.pedidos.map(p => p.id).join();
+    await carregarPedidos();
+    const { data } = await db.from('workspace_members').select('user_id,role,email,display_name,joined_at')
+      .eq('workspace_id', A.espaco.id).order('joined_at');
+    if (data) A.membros = data;
+    if (A.pedidos.map(p => p.id).join() !== antes || data) avisar('cfi:pedidos');
+  }
+
   function ligarTempoReal() {
     const filtro = `workspace_id=eq.${A.espaco.id}`;
     canal = db.channel('espaco-' + A.espaco.id)
       .on('postgres_changes', { event: '*', schema: 'public', table: 'entries', filter: filtro }, agendar)
       .on('postgres_changes', { event: '*', schema: 'public', table: 'targets', filter: filtro }, agendar)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'pedidos_entrada', filter: filtro }, () => { atualizarPedidos(); })
       /* Ao reconectar, busca o que mudou enquanto o aparelho estava sem conexão. */
       .subscribe(status => { if (status === 'SUBSCRIBED') agendar(); });
   }
@@ -260,14 +339,48 @@
     await carregarEspaco();
     return '';
   };
-  A.criarEspaco = nome => chamar('criar_espaco', { p_nome: nome });
-  A.aceitarConvite = codigo => chamar('entrar_com_convite', { p_codigo: codigo });
-  A.novoConvite = async () => {
-    const { data, error } = await db.rpc('novo_convite', { p_ws: A.espaco.id });
+
+  /* Cria o CFI (quem comprou) ou completa os nomes de um CFI antigo. */
+  A.configurarCFI = c => chamar('configurar_cfi', {
+    p_tipo: c.tipo, p_nome_titular: c.titular, p_nome_parceiro: c.parceiro || null,
+    p_email_parceiro: c.email || null, p_nome_empresa: c.empresa
+  });
+
+  /* Entrar em um CFI existente: confere o e-mail de quem comprou, mostra o
+     nome para a pessoa confirmar e só então envia o pedido. */
+  A.procurarCFI = async email => {
+    const { data, error } = await db.rpc('procurar_cfi', { p_email_titular: email });
+    return error ? { erro: traduzir(error) } : { nome: data };
+  };
+  A.pedirEntrada = email => chamar('pedir_entrada', { p_email_titular: email });
+  A.cancelarPedido = () => chamar('cancelar_pedido', {});
+  A.esquecerRecusa = () => { A.pedido = null; definir('sem-espaco'); };
+
+  A.responderPedido = async (id, aceitar) => {
+    const { error } = await db.rpc('responder_pedido', { p_pedido: id, p_aceitar: aceitar });
+    await atualizarPedidos();
+    return error ? traduzir(error) : '';
+  };
+  A.trocarParceiro = async (nome, email) => {
+    const { error } = await db.rpc('trocar_parceiro', { p_nome: nome, p_email: email });
     if (error) return traduzir(error);
-    A.espaco.invite_code = data;
+    const { data } = await db.from('workspaces').select(COLUNAS_WS).eq('id', A.espaco.id).single();
+    if (data) {
+      A.espaco = data;
+      F.configurar(data);
+      const d = await baixar();
+      F.substituir(d.rows, d.cfg);
+    }
     return '';
   };
+
+  /* O que a pessoa escolheu antes do login (criar ou entrar) sobrevive à ida ao Google. */
+  function lembrarIntencao(v) {
+    A.intencao = v;
+    try { if (v) sessionStorage.setItem(INTENCAO, v); else sessionStorage.removeItem(INTENCAO); } catch (e) { /* fica só na memória */ }
+  }
+  A.definirIntencao = v => { lembrarIntencao(v); avisar('cfi:auth'); };
+  try { A.intencao = sessionStorage.getItem(INTENCAO); } catch (e) { A.intencao = null; }
 
   A.guardarDestino = h => { try { sessionStorage.setItem(DESTINO, h); } catch (e) { /* segue sem destino */ } };
   A.pegarDestino = () => {

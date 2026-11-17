@@ -40,17 +40,32 @@
     });
   }
 
+  /* Nomes do CFI de quem está logado; a conta individual esconde o que é do casal. */
+  function nomes() {
+    const F = window.FIN, casal = F.CFI.casal;
+    document.querySelectorAll('[data-nome]').forEach(el => {
+      const p = F.PROFILES[el.dataset.nome];
+      el.textContent = p ? p.nome : '';
+    });
+    document.querySelectorAll('[data-so-casal]').forEach(el => { el.hidden = !casal; });
+    document.querySelectorAll('[data-so-individual]').forEach(el => { el.hidden = casal; });
+  }
+
   /* Saldo em caixa de hoje nos cartões do hero e no passo 2. */
   function saldos() {
+    nomes();
     const c = window.FIN.totais('casal', REF, ANO, 'real');
     document.querySelectorAll('[data-saldo]').forEach(el => { el.textContent = brl2(window.FIN.saldoCaixa(el.dataset.saldo)); });
     document.querySelectorAll('[data-mes-sub]').forEach(el => { el.textContent = 'em caixa hoje'; });
     document.getElementById('fc-casal-sub').textContent = 'em ' + mesAtual + ': ' + brl(c.rec) + ' recebidos, ' + brl(c.gas) + ' gastos';
+    const res = brl(window.FIN.empresa(ANO).res);
+    document.getElementById('fc-empresa').textContent = res;
+    document.getElementById('mini-empresa').textContent = res;
   }
   window.addEventListener('cfi:landing', saldos);
   saldos();
 
-  let current = 'luiz';
+  let current = 'titular';
   document.getElementById('preview-tabs').addEventListener('click', e => {
     const b = e.target.closest('button');
     if (!b) return;
@@ -61,6 +76,15 @@
     current = b.dataset.p;
     preview(current);
   });
-  window.addEventListener('cfi:landing', () => preview(current));
+  window.addEventListener('cfi:landing', () => {
+    if (!window.FIN.PROFILES[current] && !(current === 'casal' && window.FIN.CFI.casal)) {
+      current = 'titular';
+      document.querySelectorAll('#preview-tabs button').forEach(x => {
+        x.classList.toggle('on', x.dataset.p === current);
+        x.setAttribute('aria-selected', String(x.dataset.p === current));
+      });
+    }
+    preview(current);
+  });
   preview(current);
 })();

@@ -1,8 +1,8 @@
 // Instruções do agente de lançamentos do WhatsApp.
-import { PERFIS } from '../_shared/lancamento.ts';
+import type { Perfis } from '../_shared/perfis.ts';
 
-export function instrucoes(perfilPadrao: string, hoje: string, diaSemana: string, nome = ''): string {
-  const contas = Object.entries(PERFIS).map(([id, p]) => {
+export function instrucoes(perfis: Perfis, perfilPadrao: string, hoje: string, diaSemana: string, nome = ''): string {
+  const contas = Object.entries(perfis).map(([id, p]) => {
     const lista = (k: 'in' | 'out') => p[k].categorias.length
       ? p[k].categorias.map(c => `  - ${id}|${k}|${c.nome}${c.descricao ? ` — ${c.descricao}` : ''}`).join('\n')
       : '  (nenhuma)';
@@ -12,10 +12,10 @@ export function instrucoes(perfilPadrao: string, hoje: string, diaSemana: string
 
   return `Você é o agente de lançamentos de um sistema de controle financeiro familiar. Recebe mensagens de WhatsApp (texto, foto de comprovante, PDF ou áudio) e transforma cada gasto ou recebimento em um lançamento.
 
-Hoje é ${diaSemana}, ${hoje} (horário de Brasília). Quem enviou a mensagem usa por padrão o perfil "${perfilPadrao}" (${PERFIS[perfilPadrao]?.nome ?? perfilPadrao}).
+Hoje é ${diaSemana}, ${hoje} (horário de Brasília). Quem enviou a mensagem usa por padrão o perfil "${perfilPadrao}" (${perfis[perfilPadrao]?.nome ?? perfilPadrao}).
 
 ## Como decidir
-- Perfil: use "${perfilPadrao}", a menos que a mensagem diga claramente que é da casa (contas conjuntas, mercado da casa, luz, água) ou da empresa (${PERFIS.empresa?.nome ?? 'empresa'}, oficina, cliente, fornecedor).
+- Perfil: use "${perfilPadrao}", a menos que a mensagem diga claramente que é ${perfis.casa ? 'da casa (contas conjuntas, mercado da casa, luz, água) ou ' : ''}da empresa (${perfis.empresa?.nome ?? 'empresa'}, cliente, fornecedor).
 - Entrada (in) é dinheiro recebido; saída (out) é dinheiro gasto ou a pagar.
 - Categoria: escolha a mais próxima da lista do perfil, usando as descrições. Nunca invente categoria.
 - Valor: "valor_parcela" é o valor de cada parcela. "300 em 3x" = 3 parcelas de 100. "3x de 100" = 3 parcelas de 100. Sem parcelamento, parcelas = 1 e o valor total.

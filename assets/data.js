@@ -1,80 +1,121 @@
 /* Estrutura das contas e regras de cálculo. Nenhum valor vem pré-preenchido:
    todos os números do site são calculados a partir do que o usuário lança,
-   e metas e limites são definidos por ele em Plano de Contas. */
+   e metas e limites são definidos por ele em Plano de Contas.
+
+   Os nomes (titular, parceiro(a), empresa) e as categorias são de cada CFI e
+   vêm do banco depois do login (configurar). Aqui fica só o modelo genérico,
+   usado por quem ainda não personalizou as próprias categorias. */
 (function () {
   'use strict';
 
   const MES = ['JAN', 'FEV', 'MAR', 'ABR', 'MAI', 'JUN', 'JUL', 'AGO', 'SET', 'OUT', 'NOV', 'DEZ'];
   const MES_LONGO = ['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho', 'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'];
 
-  const PROFILES = {
-    luiz: {
-      nome: 'Luiz Santos', curto: 'Luiz',
-      catIn: ['ENTREGAS DE JORNAL', 'SIXTEEN DESIGN', 'GR OFF ROAD', 'RESTAURANTE', 'CARNAVAL', 'OUTROS', '99', 'UBER'],
-      descIn: { 'SIXTEEN DESIGN': 'Empresa', RESTAURANTE: 'Entregas' },
-      catOut: ['CASA', 'ALIMENTAÇÃO', 'ROUPA', 'CABELO', 'FARRA', 'JUROS', 'GR OFF ROAD', 'LAZER', 'PEÇAS MOTO + CONTAS MOTO', 'GASOLINA', 'REMÉDIO', 'IOF´S', 'INTER', 'JOGO', 'CNPJ', 'PIX CRÉDITO', 'SEGUROS', 'ELETRÔNICOS', 'INTERNET', 'HONDA', 'CARTÃO CLEIDE', 'CURSOS E ESTUDOS', 'APPLE', 'ACADEMIA'],
-      descOut: {
-        CASA: 'Geral',
-        FARRA: 'Bebidas',
-        JUROS: 'Cartões de crédito',
-        'GR OFF ROAD': 'Custos de produtos',
-        LAZER: 'Final de semana e lazer com namorada e amigos',
-        'PEÇAS MOTO + CONTAS MOTO': 'Gastos de manutenção e peças',
-        GASOLINA: 'Custo de trabalho',
-        'IOF´S': 'IOF sobre atrasos de cartões de crédito',
-        INTER: 'Cartão de crédito',
-        JOGO: 'MXBikes, Flight Simulator, time virtual',
-        CNPJ: 'PGDAS, parcelamentos, dívidas mensais do CNPJ',
-        'PIX CRÉDITO': 'PIX feito em cartões de crédito',
-        SEGUROS: 'Vida, moto, previdência',
-        'ELETRÔNICOS': 'Computador, iPhone novo, plotter de recorte da oficina',
-        INTERNET: 'VS internet fixo, Vero internet fixo (Itabirito), Vivo móvel, BMI fixo (Belo Horizonte)',
-        HONDA: 'Consórcio de uma CRF 250F zero',
-        'CARTÃO CLEIDE': 'Contas pessoais pagas no cartão da Cleide',
-        APPLE: 'Armazenamento e apps: Spotify, Netflix, CapCut, iCloud, Gemini, Claude',
-        ACADEMIA: 'Pagamentos mensais do plano de academia'
-      },
-      cartoes: ['CREDICARD', 'ITAU PLATINUM', 'INTER', 'PICPAY'],
-      conta: 'NUBANK'
+  const PESSOAL = {
+    catIn: ['SALÁRIO', 'RENDA EXTRA', 'VENDAS', 'OUTROS'],
+    descIn: { 'RENDA EXTRA': 'Bicos, freelas e serviços avulsos' },
+    catOut: ['CASA', 'ALIMENTAÇÃO', 'TRANSPORTE', 'COMBUSTÍVEL', 'SAÚDE', 'EDUCAÇÃO', 'ROUPA', 'CABELO E BELEZA', 'LAZER', 'ASSINATURAS', 'INTERNET E CELULAR', 'SEGUROS', 'JUROS E TARIFAS', 'OUTROS'],
+    descOut: {
+      CASA: 'Aluguel, condomínio e contas pessoais da casa',
+      ASSINATURAS: 'Streaming, apps e armazenamento',
+      'JUROS E TARIFAS': 'Juros de cartão, IOF e tarifas bancárias'
     },
-    cleide: {
-      nome: 'Cleide Nascimento', curto: 'Cleide',
-      catIn: ['MATERDEI', 'POSTO', '3D', 'TRÁFEGO DIGITAL'],
-      catOut: ['CASA', 'ALIMENTAÇÃO', 'FARRA / LAZER', 'ROUPA', 'CABELO'],
-      cartoes: ['PICPAY', 'NUBANK']
-    },
+    cartoes: ['NUBANK', 'ITAÚ', 'INTER', 'SANTANDER'],
+    conta: ''
+  };
+
+  /* Modelo de quem acabou de criar o CFI. Uma estrutura salva no banco
+     (workspaces.estrutura) substitui cada parte que ela trouxer. */
+  const MODELO = {
+    titular: PESSOAL,
+    parceiro: PESSOAL,
     casa: {
-      nome: 'Casa', curto: 'Casa',
       catIn: [],
       catOut: ['ALIMENTAÇÃO', 'INSUMOS CASA', 'LUZ & ÁGUA', 'INTERNET', 'HIGIENE PESSOAL', 'LAZER', 'VIAGENS', 'INVESTIMENTOS'],
       cartoes: []
     },
     empresa: {
-      nome: 'Sixteen Design', curto: 'Sixteen Design',
-      catIn: ['R-P (Vendas)', 'R-P (Produtos)', 'R-S (Serviços)', 'R-S (Oficina)'],
-      catOut: ['D-RH (Folha)', 'D-MKT (Marketing)', 'D-O (Operacional)', 'D-O (Unicores)', 'D-O (Materiais oficina)'],
-      descOut: { 'D-O (Unicores)': 'Fornecedor de tintas', 'D-O (Materiais oficina)': 'Materiais e equipamentos em geral' },
-      cartoes: ['CREDICARD', 'ITAU PLATINUM', 'INTER', 'PICPAY']
+      catIn: ['R-P (Vendas)', 'R-P (Produtos)', 'R-S (Serviços)'],
+      catOut: ['D-RH (Folha)', 'D-MKT (Marketing)', 'D-O (Operacional)', 'D-O (Impostos)', 'D-O (Fornecedores)'],
+      descOut: { 'D-O (Impostos)': 'DAS, impostos e taxas', 'D-O (Fornecedores)': 'Materiais e mercadorias' },
+      contaPJ: 'CONTA PJ'
+    },
+    casalCats: [
+      ['ALIMENTAÇÃO & INSUMOS', ['ALIMENTAÇÃO', 'INSUMOS CASA']],
+      ['LUZ, ÁGUA, INTERNET', ['LUZ & ÁGUA', 'INTERNET']],
+      ['HIGIENE PESSOAL', ['HIGIENE PESSOAL']],
+      ['LAZER & VIAGENS', ['LAZER', 'VIAGENS']],
+      ['INVESTIMENTOS & RESERVA', ['INVESTIMENTOS']]
+    ],
+    // O saldo em caixa do titular soma a empresa quando as duas usam a mesma conta.
+    caixaComEmpresa: false
+  };
+
+  /* Estes objetos mudam de conteúdo a cada login, mas nunca de referência,
+     porque as outras telas guardam o atalho para eles. */
+  const PROFILES = {};
+  const CASAL_CARDS = {};
+  const CARTOES_CASA = [];
+  const CFI = { casal: true, titular: '', parceiro: '', empresa: '', caixaComEmpresa: false, contaPJ: '' };
+  let CASAL_CATS = MODELO.casalCats;
+
+  const lista = v => (Array.isArray(v) ? v.filter(x => typeof x === 'string' && x.trim()).map(x => x.trim()) : null);
+  const mapa = v => (v && typeof v === 'object' && !Array.isArray(v) ? v : {});
+
+  /* ws: { plan, nome_titular, nome_parceiro, nome_empresa, estrutura } */
+  function configurar(ws) {
+    ws = ws || {};
+    const est = mapa(ws.estrutura);
+    const casal = ws.plan !== 'individual';
+    const nomes = {
+      titular: (ws.nome_titular || 'Você').trim(),
+      parceiro: (ws.nome_parceiro || 'Parceiro(a)').trim(),
+      casa: 'Casa',
+      empresa: (ws.nome_empresa || 'Empresa').trim()
+    };
+    const ordem = casal ? ['titular', 'parceiro', 'casa', 'empresa'] : ['titular', 'empresa'];
+    Object.keys(PROFILES).forEach(k => delete PROFILES[k]);
+    ordem.forEach(p => {
+      const m = MODELO[p], e = mapa(est[p]);
+      PROFILES[p] = {
+        nome: nomes[p], curto: nomes[p],
+        catIn: lista(e.catIn) || m.catIn.slice(),
+        catOut: lista(e.catOut) || m.catOut.slice(),
+        descIn: Object.assign({}, m.descIn, mapa(e.descIn)),
+        descOut: Object.assign({}, m.descOut, mapa(e.descOut)),
+        cartoes: lista(e.cartoes) || (m.cartoes || []).slice(),
+        conta: typeof e.conta === 'string' ? e.conta : (m.conta || '')
+      };
+    });
+    // A empresa paga com os cartões do titular, além da conta PJ.
+    PROFILES.empresa.cartoes = lista(mapa(est.empresa).cartoes) || PROFILES.titular.cartoes.slice();
+    CFI.casal = casal;
+    CFI.titular = nomes.titular; CFI.parceiro = casal ? nomes.parceiro : ''; CFI.empresa = nomes.empresa;
+    CFI.caixaComEmpresa = est.caixaComEmpresa === true;
+    CFI.contaPJ = (typeof mapa(est.empresa).contaPJ === 'string' && mapa(est.empresa).contaPJ.trim()) || MODELO.empresa.contaPJ;
+    CASAL_CATS = Array.isArray(est.casalCats) ? est.casalCats : MODELO.casalCats;
+
+    /* Cartões do casal: um por pessoa ("NUBANK ANA") e um consolidado
+       quando os dois têm o mesmo cartão. */
+    Object.keys(CASAL_CARDS).forEach(k => delete CASAL_CARDS[k]);
+    CARTOES_CASA.length = 0;
+    if (casal) {
+      const donos = ['titular', 'parceiro'];
+      const todos = [];
+      donos.forEach(p => PROFILES[p].cartoes.forEach(c => { if (!todos.includes(c)) todos.push(c); }));
+      todos.forEach(c => {
+        const pares = donos.filter(p => PROFILES[p].cartoes.includes(c)).map(p => [p, c]);
+        if (pares.length > 1) CASAL_CARDS[c + ' (CONSOLIDADO)'] = pares;
+        pares.forEach(([p]) => {
+          const tag = c + ' ' + PROFILES[p].curto.toUpperCase();
+          CASAL_CARDS[tag] = [[p, c]];
+          CARTOES_CASA.push(tag);
+        });
+      });
     }
-  };
-
-  const CASAL_CATS = [
-    ['ALIMENTAÇÃO & INSUMOS', ['ALIMENTAÇÃO', 'INSUMOS CASA']],
-    ['LUZ, ÁGUA, INTERNET', ['LUZ & ÁGUA', 'INTERNET']],
-    ['HIGIENE PESSOAL', ['HIGIENE PESSOAL']],
-    ['LAZER & VIAGENS', ['LAZER', 'VIAGENS']],
-    ['INVESTIMENTOS & RESERVA', ['INVESTIMENTOS']]
-  ];
-
-  const CASAL_CARDS = {
-    'PICPAY (CONSOLIDADO)': [['luiz', 'PICPAY'], ['cleide', 'PICPAY']],
-    'PICPAY LUIZ': [['luiz', 'PICPAY']],
-    'PICPAY CLEIDE': [['cleide', 'PICPAY']],
-    'INTER LUIZ': [['luiz', 'INTER']],
-    'ITAU PLATINUM LUIZ': [['luiz', 'ITAU PLATINUM']],
-    'CREDICARD LUIZ': [['luiz', 'CREDICARD']],
-    'NUBANK CLEIDE': [['cleide', 'NUBANK']]
-  };
+    ROWS = vazio();
+    CFG = cfgVazia();
+  }
 
   /* Opções dos formulários de lançamento. Os agentes do servidor usam as mesmas
      listas (supabase/functions/_shared/perfis.json, gerado por scripts/gerar-perfis.mjs). */
@@ -85,13 +126,12 @@
     empSaida: ['PIX', 'Crédito', 'Débito', 'PIX Corp', 'Crédito PJ', 'Débito Aut.', 'Boleto', 'Transferência'],
     empEntrada: ['PIX', 'Boleto', 'Transferência', 'PIX Corp']
   };
-  const CARTOES_CASA = ['PICPAY LUIZ', 'PICPAY CLEIDE', 'INTER LUIZ', 'ITAU PLATINUM LUIZ', 'CREDICARD LUIZ', 'NUBANK CLEIDE'];
 
   /* Formas de pagamento e cartões/contas aceitos em cada formulário ('-' = nenhum). */
   function opcoes(p, kind) {
     const out = kind === 'out', emp = p === 'empresa';
     const formas = emp ? (out ? FORMAS.empSaida : FORMAS.empEntrada) : (out ? FORMAS.saida : FORMAS.entrada);
-    const cartoes = !out ? [] : emp ? ['PJ ITAÚ', '-'].concat(PROFILES[p].cartoes)
+    const cartoes = !out ? [] : emp ? [CFI.contaPJ, '-'].concat(PROFILES[p].cartoes)
       : p === 'casa' ? ['-'].concat(CARTOES_CASA) : ['-'].concat(PROFILES[p].cartoes);
     return { formas, cartoes };
   }
@@ -99,8 +139,8 @@
   /* ---------- Armazenamento ----------
      Sem login configurado, salva neste navegador. Com login, os dados moram no
      banco e aqui fica só a cópia em memória; nada financeiro vai para o navegador. */
-  const KEY = 'cfi.dados.v2';
-  const KEY_ANTIGA = 'cfi.lancamentos.v1'; // continha os valores de exemplo
+  const KEY = 'cfi.dados.v3';
+  const KEYS_ANTIGAS = ['cfi.lancamentos.v1', 'cfi.dados.v2']; // exemplos e perfis com nomes fixos
   const conf = window.CFI_CONFIG || {};
   const MODO_NUVEM = !!(conf.SUPABASE_URL && conf.SUPABASE_ANON_KEY);
   let remoto = null;
@@ -112,16 +152,17 @@
   };
   const cfgVazia = () => ({ metas: {}, limites: {}, empresa: {} });
 
-  let ROWS = vazio();
+  let ROWS = {};
   let CFG = cfgVazia();
+  configurar({});
 
   if (!MODO_NUVEM) {
     try {
-      localStorage.removeItem(KEY_ANTIGA);
+      KEYS_ANTIGAS.forEach(k => localStorage.removeItem(k));
       const raw = localStorage.getItem(KEY);
       if (raw) {
         const d = JSON.parse(raw);
-        if (d && d.rows && d.rows.luiz) { ROWS = d.rows; CFG = d.cfg || cfgVazia(); }
+        if (d && d.rows && d.rows.titular) { ROWS = Object.assign(vazio(), d.rows); CFG = d.cfg || cfgVazia(); }
       }
     } catch (e) { /* armazenamento indisponível: começa vazio */ }
   }
@@ -176,6 +217,7 @@
   }
 
   function soma(p, kind, m, y, mode, filtro) {
+    if (!ROWS[p]) return 0;
     return ROWS[p][kind]
       .filter(r => conta(r, mode) && noMes(r, m, y) && (!filtro || filtro(r)))
       .reduce((s, r) => s + r.val, 0);
@@ -206,7 +248,7 @@
   /* ---------- Cálculos ---------- */
   function totais(p, m, y, mode) {
     if (p === 'casal') {
-      const a = totais('luiz', m, y, mode), b = totais('cleide', m, y, mode);
+      const a = totais('titular', m, y, mode), b = totais('parceiro', m, y, mode);
       const rec = a.rec + b.rec, gas = a.gas + b.gas + soma('casa', 'out', m, y, mode);
       return { rec, gas, saldo: rec - gas };
     }
@@ -225,7 +267,7 @@
   /* Agrupa as saídas da casa e das duas pessoas nas categorias do casal,
      para que a soma das categorias feche com o total gasto. */
   function casalGrupos() {
-    const quem = [['casa'], ['luiz'], ['cleide']].map(x => x[0]);
+    const quem = ['casa', 'titular', 'parceiro'];
     const usados = new Set();
     const grupos = CASAL_CATS.map(([nome, cats]) => {
       cats.forEach(c => usados.add(c));
@@ -234,7 +276,7 @@
       return { nome, membros };
     });
     const extras = {};
-    ['luiz', 'cleide'].forEach(p => PROFILES[p].catOut.forEach(c => {
+    ['titular', 'parceiro'].forEach(p => PROFILES[p].catOut.forEach(c => {
       if (!usados.has(c)) (extras[c] = extras[c] || []).push([p, c]);
     }));
     Object.keys(extras).forEach(nome => grupos.push({ nome, membros: extras[nome] }));
@@ -254,7 +296,7 @@
   function fatura(owner, card, m, y, mode) {
     const tag = card + ' ' + PROFILES[owner].curto.toUpperCase();
     return soma(owner, 'out', m, y, mode, r => r.card === card && r.forma === 'Crédito')
-      + (owner === 'luiz' ? soma('empresa', 'out', m, y, mode, r => r.card === card && r.forma === 'Crédito') : 0)
+      + (owner === 'titular' ? soma('empresa', 'out', m, y, mode, r => r.card === card && r.forma === 'Crédito') : 0)
       + soma('casa', 'out', m, y, mode, r => r.card === tag && r.forma === 'Crédito');
   }
 
@@ -267,13 +309,20 @@
   }
 
   /* Dinheiro em caixa hoje: tudo o que já foi recebido menos tudo o que já foi pago,
-     de todos os meses. Fatura futura ainda não saiu da conta. O Luiz soma a empresa,
-     porque os dois passam pela mesma conta. */
-  const CAIXA = { luiz: ['luiz', 'empresa'], cleide: ['cleide'], casal: ['luiz', 'empresa', 'cleide', 'casa'] };
+     de todos os meses. Fatura futura ainda não saiu da conta. O titular soma a
+     empresa quando os dois passam pela mesma conta (caixaComEmpresa). */
+  function caixaDe(p) {
+    const emp = CFI.caixaComEmpresa ? ['empresa'] : [];
+    if (p === 'titular') return ['titular'].concat(emp);
+    if (p === 'casal') return ['titular', 'parceiro', 'casa'].concat(emp);
+    return [p];
+  }
   function saldoCaixa(p) {
+    if (p !== 'casal' && !ROWS[p]) return 0;
+    if (p === 'casal' && !CFI.casal) return 0;
     const d = hoje();
     const total = (q, kind) => ROWS[q][kind].filter(r => r.pag && r.pag <= d).reduce((s, r) => s + r.val, 0);
-    return Math.round(CAIXA[p].reduce((s, q) => s + total(q, 'in') - total(q, 'out'), 0) * 100) / 100;
+    return Math.round(caixaDe(p).reduce((s, q) => s + total(q, 'in') - total(q, 'out'), 0) * 100) / 100;
   }
 
   /* Seis meses até o mês escolhido, atravessando a virada do ano quando preciso. */
@@ -323,7 +372,7 @@
   function formPadrao(p, kind) {
     const out = kind === 'out', d = hoje();
     const base = { cat: (out ? PROFILES[p].catOut : PROFILES[p].catIn)[0], obs: '', val: '', tipo: 'Único', parcelas: '3', venc: d, pag: d, card: '-' };
-    if (p === 'empresa') return Object.assign(base, out ? { forma: 'PIX Corp', card: 'PJ ITAÚ' } : { forma: 'Boleto' });
+    if (p === 'empresa') return Object.assign(base, out ? { forma: 'PIX Corp', card: CFI.contaPJ } : { forma: 'Boleto' });
     if (!out) return Object.assign(base, { forma: 'PIX' });
     if (p === 'casa') return Object.assign(base, { forma: 'Débito' });
     return Object.assign(base, { forma: 'Crédito', card: PROFILES[p].cartoes[0] });
@@ -373,7 +422,7 @@
   }
 
   window.FIN = {
-    MES, MES_LONGO, PROFILES, CASAL_CARDS, TIPOS, opcoes,
+    MES, MES_LONGO, PROFILES, CASAL_CARDS, CFI, MODELO, TIPOS, FORMAS, opcoes, configurar,
     linhas: (p, kind) => ROWS[p][kind],
     temDados: () => Object.values(ROWS).some(g => g.in.length + g.out.length > 0)
       || Object.keys(CFG.metas).length + Object.keys(CFG.limites).length + Object.keys(CFG.empresa).length > 0,

@@ -4,3 +4,6 @@ node_modules/
 .env*
 supabase/.temp/
 supabase/.branches/
+
+# Dados pessoais que não vão para o GitHub
+privado/

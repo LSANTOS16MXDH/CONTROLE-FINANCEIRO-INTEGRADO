@@ -1,7 +1,7 @@
 // Textos do agente no WhatsApp. O tom é de um assistente pessoal: chama a
 // pessoa pelo nome, confirma com clareza o que foi feito e dá um pouco de
 // contexto do mês, sem parecer mensagem automática.
-import { PERFIS, brl, dataBR, type Linha } from '../_shared/lancamento.ts';
+import { brl, dataBR, type Linha, type Perfis } from '../_shared/lancamento.ts';
 
 /** Escolhe uma variação de frase de forma estável para a mesma mensagem. */
 export function variar<T>(lista: T[], semente: string): T {
@@ -43,8 +43,8 @@ function meio(r: Linha): string {
 }
 
 /** Bloco de um lançamento (já expandido em parcelas). */
-export function bloco(linhas: Linha[], hoje: string): string {
-  const r = linhas[0], p = PERFIS[r.profile];
+export function bloco(linhas: Linha[], hoje: string, perfis: Perfis): string {
+  const r = linhas[0], p = perfis[r.profile] ?? { curto: r.profile };
   const icone = r.kind === 'in' ? '💰' : '💸';
   const titulo = `${icone} *${r.cat}*${r.obs ? ` — ${r.obs}` : ''}`;
   const n = linhas.length;
@@ -68,7 +68,7 @@ export interface Contexto {
 
 export function confirmacao(o: {
   nome: string; grupos: Linha[][]; hoje: string; semente: string;
-  contexto?: Contexto | null; problemas?: string[];
+  contexto?: Contexto | null; problemas?: string[]; perfis: Perfis;
 }): string {
   const { nome, grupos, hoje, semente } = o;
   const entrada = grupos.every(g => g[0].kind === 'in');
@@ -78,7 +78,7 @@ export function confirmacao(o: {
       ? variar([`Opa, dinheiro entrando! 🙌 Já anotei, ${nome}:`, `Boa, ${nome}! Registrei sua entrada:`, `Anotado, ${nome}! Que venham mais dessas 😄`], semente)
       : variar([`Prontinho, ${nome}! Já anotei aqui:`, `Feito, ${nome}! Lançamento registrado:`, `Anotado, ${nome}! ✍️`, `Tudo certo, ${nome}! Registrei assim:`], semente);
 
-  const partes = [abre, grupos.map(g => bloco(g, hoje)).join('\n\n')];
+  const partes = [abre, grupos.map(g => bloco(g, hoje, o.perfis)).join('\n\n')];
 
   const c = o.contexto, r = grupos[0][0];
   if (c && grupos.length === 1 && c.qtdCategoria > 1) {
@@ -98,10 +98,10 @@ export function confirmacao(o: {
   return partes.join('\n\n');
 }
 
-export function boasVindas(nome: string, perfil: string): string {
+export function boasVindas(nome: string, nomePerfil: string): string {
   return `Oi, ${nome}! 👋 Que bom ter você por aqui.
 
-Seu WhatsApp agora está ligado ao *Controle Financeiro Integrado*, no perfil *${PERFIS[perfil]?.nome ?? perfil}*. A partir de agora eu sou seu assistente financeiro pessoal: é só me mandar o que entrou e o que saiu que eu cuido das anotações.
+Seu WhatsApp agora está ligado ao *Controle Financeiro Integrado*, no perfil *${nomePerfil}*. A partir de agora eu sou seu assistente financeiro pessoal: é só me mandar o que entrou e o que saiu que eu cuido das anotações.
 
 ${comoUsar()}`;
 }

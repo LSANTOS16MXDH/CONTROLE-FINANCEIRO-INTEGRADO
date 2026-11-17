@@ -4,6 +4,8 @@
 import { assert, assertEquals, assertMatch, assertRejects, assertThrows } from 'jsr:@std/assert@1.0.13';
 import { BancoFalso } from './banco-falso.ts';
 import { montarLinhas, contas, esquemaExtracao, descrever } from '../_shared/lancamento.ts';
+import { montarPerfis } from '../_shared/perfis.ts';
+import { instrucoesCFO } from '../cfo/prompt.ts';
 import { resumir, executarFerramenta, type Lanc } from '../_shared/resumo.ts';
 import { criarHandler as whatsapp } from '../whatsapp/logica.ts';
 import { criarHandler as cfo } from '../cfo/logica.ts';
@@ -13,7 +15,18 @@ import * as R from '../whatsapp/respostas.ts';
 
 const SEGREDO = 'segredo-de-teste';
 const AGORA = new Date('2026-11-16T15:00:00Z'); // 12h em Brasília
-const WS = 'ws-1', LUIZ = 'u-luiz', CLEIDE = 'u-cleide';
+const WS = 'ws-1', ANA = 'u-ana', BRUNO = 'u-bruno';
+
+// CFI de teste, com nomes e categorias fictícios. Cada CFI tem os próprios.
+const ESPACO = {
+  id: WS, plan: 'conjunto', nome_titular: 'Ana', nome_parceiro: 'Bruno', nome_empresa: 'Studio Teste',
+  estrutura: {
+    titular: { catIn: ['SALÁRIO', 'UBER'], catOut: ['CASA', 'ALIMENTAÇÃO', 'GASOLINA', 'ELETRÔNICOS', 'INTERNET'], cartoes: ['PICPAY', 'INTER', 'NUBANK'] },
+    parceiro: { catIn: ['SALÁRIO'], catOut: ['ALIMENTAÇÃO', 'ROUPA'], cartoes: ['PICPAY', 'NUBANK'] },
+    empresa: { catIn: ['R-P (Vendas)', 'R-S (Oficina)'] }
+  }
+};
+const PERFIS = montarPerfis(ESPACO);
 
 async function assinar(corpo: string) {
   const k = await crypto.subtle.importKey('raw', new TextEncoder().encode(SEGREDO), { name: 'HMAC', hash: 'SHA-256' }, false, ['sign']);
@@ -25,7 +38,7 @@ async function assinar(corpo: string) {
 
 Deno.test('crédito parcelado: valor por parcela, vencimentos mensais e fim de mês', () => {
   let n = 0;
-  const l = montarLinhas({ conta: 'luiz|out|ALIMENTAÇÃO', descricao: 'Mercado', valor_parcela: 100, parcelas: 3, forma: 'Crédito', cartao: 'picpay', recorrente: false, data: '2026-01-31', pago: true }, '2026-11-16', () => 'id' + n++);
+  const l = montarLinhas({ conta: 'titular|out|ALIMENTAÇÃO', descricao: 'Mercado', valor_parcela: 100, parcelas: 3, forma: 'Crédito', cartao: 'picpay', recorrente: false, data: '2026-01-31', pago: true }, '2026-11-16', PERFIS, () => 'id' + n++);
   assertEquals(l.map(x => [x.venc, x.pag, x.parc, x.val, x.card, x.tipo]), [
     ['2026-01-31', '2026-01-31', '1/3', 100, 'PICPAY', 'Parcelado'],
     ['2026-02-28', null, '2/3', 100, 'PICPAY', 'Parcelado'],
@@ -34,29 +47,29 @@ Deno.test('crédito parcelado: valor por parcela, vencimentos mensais e fim de m
 });
 
 Deno.test('crédito sem cartão usa o primeiro cartão; PIX de entrada não tem cartão', () => {
-  const a = montarLinhas({ conta: 'cleide|out|ROUPA', descricao: '', valor_parcela: 59.9, parcelas: 1, forma: 'Crédito', cartao: '-', recorrente: false, data: '2026-11-15', pago: true }, '2026-11-16');
+  const a = montarLinhas({ conta: 'parceiro|out|ROUPA', descricao: '', valor_parcela: 59.9, parcelas: 1, forma: 'Crédito', cartao: '-', recorrente: false, data: '2026-11-15', pago: true }, '2026-11-16', PERFIS);
   assertEquals([a[0].card, a[0].tipo, a[0].parc], ['PICPAY', 'Único', '1/1']);
-  const b = montarLinhas({ conta: 'luiz|in|UBER', descricao: 'Corridas', valor_parcela: 230.456, parcelas: 1, forma: 'PIX', cartao: 'NUBANK', recorrente: false, data: 'ontem', pago: true }, '2026-11-16');
+  const b = montarLinhas({ conta: 'titular|in|UBER', descricao: 'Corridas', valor_parcela: 230.456, parcelas: 1, forma: 'PIX', cartao: 'NUBANK', recorrente: false, data: 'ontem', pago: true }, '2026-11-16', PERFIS);
   assertEquals([b[0].card, b[0].val, b[0].venc, b[0].pag], ['-', 230.46, '2026-11-16', '2026-11-16']);
 });
 
 Deno.test('casa casa o cartão pelo nome; boleto a vencer fica pendente e recorrente', () => {
-  const l = montarLinhas({ conta: 'casa|out|LUZ & ÁGUA', descricao: 'Cemig', valor_parcela: 210, parcelas: 1, forma: 'Boleto', cartao: 'picpay cleide', recorrente: true, data: '2026-11-25', pago: false }, '2026-11-16');
-  assertEquals([l[0].card, l[0].pag, l[0].tipo, l[0].venc], ['PICPAY CLEIDE', null, 'Recorrente', '2026-11-25']);
+  const l = montarLinhas({ conta: 'casa|out|LUZ & ÁGUA', descricao: 'Cemig', valor_parcela: 210, parcelas: 1, forma: 'Boleto', cartao: 'picpay bruno', recorrente: true, data: '2026-11-25', pago: false }, '2026-11-16', PERFIS);
+  assertEquals([l[0].card, l[0].pag, l[0].tipo, l[0].venc], ['PICPAY BRUNO', null, 'Recorrente', '2026-11-25']);
 });
 
 Deno.test('rejeita categoria fora da lista, valor zero e forma desconhecida vira a padrão', () => {
-  assertThrows(() => montarLinhas({ conta: 'luiz|out|INVENTADA', descricao: '', valor_parcela: 10, parcelas: 1, forma: 'PIX', cartao: '-', recorrente: false, data: '2026-11-16', pago: true }, '2026-11-16'), Error, 'categoria');
-  assertThrows(() => montarLinhas({ conta: 'luiz|out|CASA', descricao: '', valor_parcela: 0, parcelas: 1, forma: 'PIX', cartao: '-', recorrente: false, data: '2026-11-16', pago: true }, '2026-11-16'), Error, 'valor');
-  const l = montarLinhas({ conta: 'empresa|in|R-S (Oficina)', descricao: '', valor_parcela: 500, parcelas: 1, forma: 'Crédito', cartao: '-', recorrente: false, data: '2026-11-16', pago: true }, '2026-11-16');
+  assertThrows(() => montarLinhas({ conta: 'titular|out|INVENTADA', descricao: '', valor_parcela: 10, parcelas: 1, forma: 'PIX', cartao: '-', recorrente: false, data: '2026-11-16', pago: true }, '2026-11-16', PERFIS), Error, 'categoria');
+  assertThrows(() => montarLinhas({ conta: 'titular|out|CASA', descricao: '', valor_parcela: 0, parcelas: 1, forma: 'PIX', cartao: '-', recorrente: false, data: '2026-11-16', pago: true }, '2026-11-16', PERFIS), Error, 'valor');
+  const l = montarLinhas({ conta: 'empresa|in|R-S (Oficina)', descricao: '', valor_parcela: 500, parcelas: 1, forma: 'Crédito', cartao: '-', recorrente: false, data: '2026-11-16', pago: true }, '2026-11-16', PERFIS);
   assertEquals(l[0].forma, 'PIX'); // "Crédito" não existe nas entradas da empresa
 });
 
 Deno.test('esquema lista todas as categorias e o resumo descreve parcelas', () => {
-  assert(contas().includes('casa|out|INVESTIMENTOS'));
-  assert(!contas().some(c => c.startsWith('casa|in|')));
-  assertEquals((esquemaExtracao() as any).properties.lancamentos.items.properties.conta.enum.length, contas().length);
-  const txt = descrever(montarLinhas({ conta: 'luiz|out|GASOLINA', descricao: 'Shell', valor_parcela: 50, parcelas: 2, forma: 'Crédito', cartao: 'INTER', recorrente: false, data: '2026-11-16', pago: true }, '2026-11-16'));
+  assert(contas(PERFIS).includes('casa|out|INVESTIMENTOS'));
+  assert(!contas(PERFIS).some(c => c.startsWith('casa|in|')));
+  assertEquals((esquemaExtracao(PERFIS) as any).properties.lancamentos.items.properties.conta.enum.length, contas(PERFIS).length);
+  const txt = descrever(montarLinhas({ conta: 'titular|out|GASOLINA', descricao: 'Shell', valor_parcela: 50, parcelas: 2, forma: 'Crédito', cartao: 'INTER', recorrente: false, data: '2026-11-16', pago: true }, '2026-11-16', PERFIS), PERFIS);
   assertMatch(txt, /2x de R\$\s?50,00 \(total R\$\s?100,00\)/);
 });
 
@@ -69,6 +82,7 @@ Deno.test('data de hoje em Brasília', () => {
 function montarWhats(opts: { extracao?: any; erroGemini?: Error } = {}) {
   const db = new BancoFalso();
   db.relogio = () => AGORA;
+  db.tabela('workspaces').push(structuredClone(ESPACO));
   const enviados: { para: string; texto: string; citar?: string }[] = [];
   const lidos: string[] = [];
   const chamadasGemini: any[] = [];
@@ -93,7 +107,7 @@ function montarWhats(opts: { extracao?: any; erroGemini?: Error } = {}) {
     await Promise.all(tarefas.splice(0));
     return r;
   };
-  const vincular = () => db.tabela('whatsapp_vinculos').push({ phone: '5531999990000', workspace_id: WS, user_id: LUIZ, profile: 'luiz' });
+  const vincular = () => db.tabela('whatsapp_vinculos').push({ phone: '5531999990000', workspace_id: WS, user_id: ANA, profile: 'titular' });
   return { db, h, enviar, enviados, chamadasGemini, vincular, lidos };
 }
 const texto = (id: string, body: string, from = '5531999990000') => ({ from, id, type: 'text', text: { body } });
@@ -121,13 +135,13 @@ Deno.test('número sem vínculo recebe a instrução só uma vez; outro número 
 
 Deno.test('vínculo por código: válido, inválido e bloqueio após 5 erros', async () => {
   const { db, enviar, enviados } = montarWhats();
-  db.tabela('whatsapp_codigos').push({ codigo: 'AB12CD34', workspace_id: WS, user_id: CLEIDE, profile: 'cleide', expires_at: '2026-11-16T15:10:00Z' });
-  db.tabela('whatsapp_codigos').push({ codigo: 'FFFF0000', workspace_id: WS, user_id: LUIZ, profile: 'luiz', expires_at: '2026-11-16T14:00:00Z' });
+  db.tabela('whatsapp_codigos').push({ codigo: 'AB12CD34', workspace_id: WS, user_id: BRUNO, profile: 'parceiro', expires_at: '2026-11-16T15:10:00Z' });
+  db.tabela('whatsapp_codigos').push({ codigo: 'FFFF0000', workspace_id: WS, user_id: ANA, profile: 'titular', expires_at: '2026-11-16T14:00:00Z' });
   await enviar([texto('v1', 'FFFF0000', '5531988880000')]);
   assertMatch(enviados.at(-1)!.texto, /código não funcionou/);
   await enviar([texto('v2', 'vincular ab12cd34', '5531988880000')]);
-  assertMatch(enviados.at(-1)!.texto, /^Oi, Cleide! 👋[\s\S]*perfil \*Cleide Nascimento\*/);
-  assertEquals(db.tabela('whatsapp_vinculos'), [{ phone: '5531988880000', workspace_id: WS, user_id: CLEIDE, profile: 'cleide' } as any].map(v => ({ ...v, id: db.tabela('whatsapp_vinculos')[0].id, created_at: db.tabela('whatsapp_vinculos')[0].created_at, deleted_at: null, status: 'recebida', entry_ids: [] })));
+  assertMatch(enviados.at(-1)!.texto, /^Oi, Bruno! 👋[\s\S]*perfil \*Bruno\*/);
+  assertEquals(db.tabela('whatsapp_vinculos'), [{ phone: '5531988880000', workspace_id: WS, user_id: BRUNO, profile: 'parceiro' } as any].map(v => ({ ...v, id: db.tabela('whatsapp_vinculos')[0].id, created_at: db.tabela('whatsapp_vinculos')[0].created_at, deleted_at: null, status: 'recebida', entry_ids: [] })));
   assertEquals(db.tabela('whatsapp_codigos').length, 1); // o usado foi apagado
   for (let i = 0; i < 6; i++) await enviar([texto('x' + i, '0000000' + i, '5531977770000')]);
   assertEquals(enviados.filter(e => e.para === '5531977770000').length, 5);
@@ -135,18 +149,18 @@ Deno.test('vínculo por código: válido, inválido e bloqueio após 5 erros', a
 });
 
 Deno.test('texto vira lançamento, reenvio da Meta não duplica e desfazer apaga', async () => {
-  const extracao = { lancamentos: [{ conta: 'luiz|out|GASOLINA', descricao: 'Posto Shell', valor_parcela: 120, parcelas: 1, forma: 'Débito', cartao: '-', recorrente: false, data: '2026-11-16', pago: true }], resposta: null };
+  const extracao = { lancamentos: [{ conta: 'titular|out|GASOLINA', descricao: 'Posto Shell', valor_parcela: 120, parcelas: 1, forma: 'Débito', cartao: '-', recorrente: false, data: '2026-11-16', pago: true }], resposta: null };
   const { db, enviar, enviados, chamadasGemini, vincular } = montarWhats({ extracao });
   vincular();
   await enviar([texto('g1', 'gastei 120 de gasolina no débito')]);
   await enviar([texto('g1', 'gastei 120 de gasolina no débito')]); // reenvio
   const e = db.tabela('entries');
   assertEquals(e.length, 1);
-  assertEquals([e[0].workspace_id, e[0].created_by, e[0].origem, e[0].cat, e[0].val, e[0].profile], [WS, LUIZ, 'whatsapp', 'GASOLINA', 120, 'luiz']);
+  assertEquals([e[0].workspace_id, e[0].created_by, e[0].origem, e[0].cat, e[0].val, e[0].profile], [WS, ANA, 'whatsapp', 'GASOLINA', 120, 'titular']);
   assertEquals(chamadasGemini.length, 1);
-  assertMatch(chamadasGemini[0].sistema, /perfil "luiz"/);
+  assertMatch(chamadasGemini[0].sistema, /perfil "titular"/);
   assertMatch(chamadasGemini[0].partes.at(-1).text, /gasolina/);
-  assertMatch(enviados.at(-1)!.texto, /Luiz[\s\S]*💸 \*GASOLINA\* — Posto Shell\nR\$\s?120,00 no débito\n📅 pago hoje · Luiz › Saídas[\s\S]*desfazer/);
+  assertMatch(enviados.at(-1)!.texto, /Ana[\s\S]*💸 \*GASOLINA\* — Posto Shell\nR\$\s?120,00 no débito\n📅 pago hoje · Ana › Saídas[\s\S]*desfazer/);
   assertEquals(enviados.at(-1)!.citar, 'g1'); // a resposta cita a mensagem
   assert(!/📊/.test(enviados.at(-1)!.texto)); // primeiro do mês: sem total
   await enviar([texto('g2', 'Desfazer')]);
@@ -179,12 +193,12 @@ Deno.test('falha do Gemini avisa a pessoa e marca erro; item inválido é inform
   const a = montarWhats({ erroGemini: new Error('503') });
   a.vincular();
   await a.enviar([texto('f1', 'gastei 30 no pix')]);
-  assertMatch(a.enviados.at(-1)!.texto, /^Ops, Luiz, tive um probleminha/);
+  assertMatch(a.enviados.at(-1)!.texto, /^Ops, Ana, tive um probleminha/);
   assertEquals(a.db.tabela('whatsapp_mensagens')[0].status, 'erro');
 
   const b = montarWhats({ extracao: { resposta: null, lancamentos: [
-    { conta: 'luiz|out|CASA', descricao: 'ok', valor_parcela: 10, parcelas: 1, forma: 'PIX', cartao: '-', recorrente: false, data: '2026-11-16', pago: true },
-    { conta: 'luiz|out|CASA', descricao: 'sem valor', valor_parcela: 0, parcelas: 1, forma: 'PIX', cartao: '-', recorrente: false, data: '2026-11-16', pago: true }
+    { conta: 'titular|out|CASA', descricao: 'ok', valor_parcela: 10, parcelas: 1, forma: 'PIX', cartao: '-', recorrente: false, data: '2026-11-16', pago: true },
+    { conta: 'titular|out|CASA', descricao: 'sem valor', valor_parcela: 0, parcelas: 1, forma: 'PIX', cartao: '-', recorrente: false, data: '2026-11-16', pago: true }
   ] } });
   b.vincular();
   await b.enviar([texto('f2', 'dois gastos')]);
@@ -195,22 +209,22 @@ Deno.test('falha do Gemini avisa a pessoa e marca erro; item inválido é inform
 // ---------- CFO ----------
 
 const LINHAS: Lanc[] = [
-  { profile: 'luiz', kind: 'in', cat: 'UBER', obs: '', val: '3000.00', forma: 'PIX', tipo: 'Único', card: '-', parc: '1/1', venc: '2026-11-05', pag: '2026-11-05' },
-  { profile: 'luiz', kind: 'out', cat: 'GASOLINA', obs: 'Shell', val: '400.00', forma: 'Crédito', tipo: 'Único', card: 'INTER', parc: '1/1', venc: '2026-11-10', pag: '2026-11-10' },
-  { profile: 'luiz', kind: 'out', cat: 'ELETRÔNICOS', obs: 'iPhone', val: '500.00', forma: 'Crédito', tipo: 'Parcelado', card: 'INTER', parc: '2/10', venc: '2026-12-10', pag: null },
-  { profile: 'luiz', kind: 'out', cat: 'INTERNET', obs: 'Vivo', val: '100.00', forma: 'Boleto', tipo: 'Recorrente', card: '-', parc: '1/1', venc: '2026-11-01', pag: null },
+  { profile: 'titular', kind: 'in', cat: 'UBER', obs: '', val: '3000.00', forma: 'PIX', tipo: 'Único', card: '-', parc: '1/1', venc: '2026-11-05', pag: '2026-11-05' },
+  { profile: 'titular', kind: 'out', cat: 'GASOLINA', obs: 'Shell', val: '400.00', forma: 'Crédito', tipo: 'Único', card: 'INTER', parc: '1/1', venc: '2026-11-10', pag: '2026-11-10' },
+  { profile: 'titular', kind: 'out', cat: 'ELETRÔNICOS', obs: 'iPhone', val: '500.00', forma: 'Crédito', tipo: 'Parcelado', card: 'INTER', parc: '2/10', venc: '2026-12-10', pag: null },
+  { profile: 'titular', kind: 'out', cat: 'INTERNET', obs: 'Vivo', val: '100.00', forma: 'Boleto', tipo: 'Recorrente', card: '-', parc: '1/1', venc: '2026-11-01', pag: null },
   { profile: 'empresa', kind: 'in', cat: 'R-S (Oficina)', obs: '', val: '8000.00', forma: 'PIX', tipo: 'Único', card: '-', parc: '1/1', venc: '2026-10-20', pag: '2026-10-20' }
 ];
 
 Deno.test('resumo do CFO: meses, atrasados, faturas e ferramentas', () => {
-  const r: any = resumir(LINHAS, [{ scope: 'meta', key: 'luiz|out|GASOLINA', value: '300' }, { scope: 'limite', key: 'x', value: 0 }], '2026-11-16');
-  const nov = r.perfis.luiz.por_mes.find((m: any) => m.mes === '2026-11');
+  const r: any = resumir(LINHAS, [{ scope: 'meta', key: 'titular|out|GASOLINA', value: '300' }, { scope: 'limite', key: 'x', value: 0 }], '2026-11-16', PERFIS);
+  const nov = r.perfis.titular.por_mes.find((m: any) => m.mes === '2026-11');
   assertEquals([nov.recebido, nov.gasto, nov.a_pagar], [3000, 400, 100]);
-  assertEquals(r.perfis.luiz.atrasados.map((a: any) => a.cat), ['INTERNET']);
-  assertEquals(r.perfis.luiz.faturas_credito_proximos_meses.INTER, { '2026-11': 400, '2026-12': 500 });
-  assertEquals(r.perfis.cleide.sem_lancamentos, true);
+  assertEquals(r.perfis.titular.atrasados.map((a: any) => a.cat), ['INTERNET']);
+  assertEquals(r.perfis.titular.faturas_credito_proximos_meses.INTER, { '2026-11': 400, '2026-12': 500 });
+  assertEquals(r.perfis.parceiro.sem_lancamentos, true);
   assertEquals(r.metas_e_limites.length, 1);
-  const c: any = executarFerramenta('consultar_lancamentos', { perfil: 'luiz', tipo: 'out', situacao: 'pendente' }, LINHAS, '2026-11-16');
+  const c: any = executarFerramenta('consultar_lancamentos', { perfil: 'titular', tipo: 'out', situacao: 'pendente' }, LINHAS, '2026-11-16');
   assertEquals([c.quantidade, c.soma], [2, 600]);
   assertEquals(c.lancamentos.map((l: any) => l.situacao), ['a vencer', 'atrasado']);
   const t: any = executarFerramenta('totais_por_categoria', { tipo: 'in', de: '2026-01-01', ate: '2026-12-31' }, LINHAS, '2026-11-16');
@@ -221,9 +235,10 @@ Deno.test('resumo do CFO: meses, atrasados, faturas e ferramentas', () => {
 function montarCFO(conversar?: any) {
   const db = new BancoFalso();
   db.relogio = () => AGORA;
-  db.usuarios['tok-luiz'] = { id: LUIZ, email: 'l@x.test' };
+  db.tabela('workspaces').push(structuredClone(ESPACO));
+  db.usuarios['tok-ana'] = { id: ANA, email: 'l@x.test' };
   db.usuarios['tok-estranho'] = { id: 'u-x', email: 'x@x.test' };
-  db.tabela('workspace_members').push({ workspace_id: WS, user_id: LUIZ, display_name: 'Luiz', email: 'l@x.test' });
+  db.tabela('workspace_members').push({ workspace_id: WS, user_id: ANA, display_name: 'Ana', email: 'l@x.test' });
   LINHAS.forEach(l => db.tabela('entries').push({ ...l, id: crypto.randomUUID(), workspace_id: WS, deleted_at: null }));
   db.tabela('entries').push({ ...LINHAS[0], id: 'outro', workspace_id: 'ws-2', deleted_at: null, val: '999999' });
   const chamadas: any[] = [];
@@ -231,7 +246,7 @@ function montarCFO(conversar?: any) {
     db: db as any, agora: () => AGORA, origens: ['https://site.test'], log: () => {},
     conversar: conversar ?? (async (o: any) => {
       chamadas.push(o);
-      const r = await o.executar('consultar_lancamentos', { perfil: 'luiz', tipo: 'out' });
+      const r = await o.executar('consultar_lancamentos', { perfil: 'titular', tipo: 'out' });
       return { texto: `Gastos de saída: ${r.soma}`, modelo: 'teste', passos: 2 };
     })
   });
@@ -248,23 +263,23 @@ Deno.test('CFO: login, espaço, resposta com ferramenta e histórico salvo', asy
   assertEquals([pre.status, pre.headers.get('access-control-allow-origin')], [204, 'https://site.test']);
   assertEquals((await perguntar(null)).status, 401);
   assertEquals((await perguntar('tok-estranho')).status, 403);
-  assertEquals((await perguntar('tok-luiz', { pergunta: '  ' })).status, 400);
-  const r = await perguntar('tok-luiz');
+  assertEquals((await perguntar('tok-ana', { pergunta: '  ' })).status, 400);
+  const r = await perguntar('tok-ana');
   assertEquals(r.status, 200);
-  assertEquals((await r.json()).texto, 'Gastos de saída: 1000'); // só o espaço do Luiz
-  assertMatch(chamadas[0].sistema, /Quem está falando com você agora: Luiz/);
+  assertEquals((await r.json()).texto, 'Gastos de saída: 1000'); // só o espaço do Ana
+  assertMatch(chamadas[0].sistema, /Quem está falando com você agora: Ana/);
   assert(!chamadas[0].sistema.includes('999999'));
   assertEquals(db.tabela('cfo_mensagens').map(m => [m.papel, m.texto]), [['user', 'Como estamos?'], ['cfo', 'Gastos de saída: 1000']]);
-  await perguntar('tok-luiz', { pergunta: 'E o cartão?' });
+  await perguntar('tok-ana', { pergunta: 'E o cartão?' });
   assertEquals(chamadas[1].historico.map((c: any) => c.role), ['user', 'model', 'user']);
 });
 
 Deno.test('CFO: limite por hora e falha do Gemini', async () => {
   const { db, perguntar } = montarCFO();
   for (let i = 0; i < 30; i++) db.tabela('cfo_mensagens').push({ workspace_id: WS, papel: 'user', texto: 'x', created_at: '2026-11-16T14:30:00Z' });
-  assertEquals((await perguntar('tok-luiz')).status, 429);
+  assertEquals((await perguntar('tok-ana')).status, 429);
   const b = montarCFO(async () => { throw Object.assign(new Error('cota'), { status: 429 }); });
-  const r = await b.perguntar('tok-luiz');
+  const r = await b.perguntar('tok-ana');
   assertEquals([r.status, (await r.json()).erro], [502, 'cota']);
   assertEquals(b.db.tabela('cfo_mensagens').length, 0); // a pergunta sem resposta não fica na conversa
 });
@@ -283,19 +298,19 @@ Deno.test('celular do Brasil sem o nono dígito recebe o 9 no envio', () => {
 });
 
 Deno.test('WhatsApp: nome do site, total do mês, parcelado e agradecimento', async () => {
-  const extracao = { resposta: null, lancamentos: [{ conta: 'luiz|out|GASOLINA', descricao: 'Shell', valor_parcela: 100, parcelas: 3, forma: 'Crédito', cartao: 'INTER', recorrente: false, data: '2026-11-16', pago: true }] };
+  const extracao = { resposta: null, lancamentos: [{ conta: 'titular|out|GASOLINA', descricao: 'Shell', valor_parcela: 100, parcelas: 3, forma: 'Crédito', cartao: 'INTER', recorrente: false, data: '2026-11-16', pago: true }] };
   const { db, enviar, enviados, vincular } = montarWhats({ extracao });
   vincular();
-  db.tabela('workspace_members').push({ workspace_id: WS, user_id: LUIZ, display_name: 'luiz filipe', email: 'l@x.test' });
-  db.tabela('entries').push({ id: 'velho', workspace_id: WS, profile: 'luiz', kind: 'out', cat: 'GASOLINA', val: '50.00', venc: '2026-11-03', deleted_at: null });
+  db.tabela('workspace_members').push({ workspace_id: WS, user_id: ANA, display_name: 'ana paula', email: 'l@x.test' });
+  db.tabela('entries').push({ id: 'velho', workspace_id: WS, profile: 'titular', kind: 'out', cat: 'GASOLINA', val: '50.00', venc: '2026-11-03', deleted_at: null });
   await enviar([texto('p1', 'abasteci 300 em 3x no inter')]);
   const t = enviados.at(-1)!.texto;
-  assertMatch(t, /Luiz/);
+  assertMatch(t, /Ana/);
   assertMatch(t, /R\$\s?300,00 em 3x de R\$\s?100,00 no crédito · INTER/);
   assertMatch(t, /1ª parcela hoje, última em 16\/01\/2027/);
   assertMatch(t, /📊 Com esse, \*GASOLINA\* soma R\$\s?150,00 em novembro \(2 lançamentos\)/);
   await enviar([texto('p2', 'valeu!')]);
-  assertMatch(enviados.at(-1)!.texto, /Luiz/);
+  assertMatch(enviados.at(-1)!.texto, /Ana/);
   assertEquals(db.tabela('entries').length, 4);
 });
 
@@ -306,8 +321,38 @@ Deno.test('respostas: datas relativas e variação estável', () => {
   assertEquals(R.quando('2026-11-20', '2026-11-16'), '20/11');
   assertEquals(R.quando('2027-01-05', '2026-11-16'), '05/01/2027');
   assertEquals(R.variar(['a', 'b', 'c'], 'x1'), R.variar(['a', 'b', 'c'], 'x1'));
-  assertEquals(R.primeiroNome('CLEIDE nascimento', 'X'), 'Cleide');
-  assertEquals(R.primeiroNome('', 'Luiz'), 'Luiz');
-  const conta = R.bloco([{ id: '1', profile: 'casa', kind: 'out', cat: 'ENERGIA', obs: 'Cemig', val: 210.5, forma: 'Boleto', tipo: 'Recorrente', card: '-', parc: '1/1', venc: '2026-11-25', pag: null }], '2026-11-16');
+  assertEquals(R.primeiroNome('BRUNO souza', 'X'), 'Bruno');
+  assertEquals(R.primeiroNome('', 'Ana'), 'Ana');
+  const conta = R.bloco([{ id: '1', profile: 'casa', kind: 'out', cat: 'ENERGIA', obs: 'Cemig', val: 210.5, forma: 'Boleto', tipo: 'Recorrente', card: '-', parc: '1/1', venc: '2026-11-25', pag: null }], '2026-11-16', PERFIS);
   assertMatch(conta, /⏰ vence 25\/11 — deixei como pendente · Casa › Saídas · todo mês/);
+});
+
+// ---------- Perfis de cada CFI ----------
+
+Deno.test('perfis: cada CFI tem os próprios nomes; individual não tem parceiro(a) nem casa', () => {
+  assertEquals(Object.keys(PERFIS), ['titular', 'parceiro', 'casa', 'empresa']);
+  assertEquals([PERFIS.titular.nome, PERFIS.parceiro.nome, PERFIS.empresa.nome], ['Ana', 'Bruno', 'Studio Teste']);
+  assert(PERFIS.casa.out.cartoes.includes('NUBANK BRUNO'));
+  assertEquals(PERFIS.empresa.out.cartoes.slice(0, 2), ['CONTA PJ', '-']);
+
+  const ind = montarPerfis({ plan: 'individual', nome_titular: 'Carla', nome_empresa: 'Doces da Carla', estrutura: null });
+  assertEquals(Object.keys(ind), ['titular', 'empresa']);
+  assert(!contas(ind).some(c => c.startsWith('casa|') || c.startsWith('parceiro|')));
+  assert(ind.titular.out.categorias.length > 5); // modelo padrão
+  assertThrows(() => montarLinhas({ conta: 'casa|out|ALIMENTAÇÃO', descricao: '', valor_parcela: 10, parcelas: 1, forma: 'PIX', cartao: '-', recorrente: false, data: '2026-11-16', pago: true }, '2026-11-16', ind), Error, 'categoria');
+  const prompt = instrucoesCFO('{}', '2026-11-16', 'segunda-feira', 'Carla', ind);
+  assertMatch(prompt, /Conta individual/);
+  assert(!/Ana|Bruno|Studio/.test(prompt));
+});
+
+Deno.test('WhatsApp usa os nomes e as categorias do CFI de quem mandou', async () => {
+  const extracao = { lancamentos: [{ conta: 'titular|out|ALIMENTAÇÃO', descricao: 'Feira', valor_parcela: 40, parcelas: 1, forma: 'PIX', cartao: '-', recorrente: false, data: '2026-11-16', pago: true }], resposta: null };
+  const { db, enviar, enviados, chamadasGemini } = montarWhats({ extracao });
+  db.tabela('workspaces').push({ id: 'ws-2', plan: 'individual', nome_titular: 'Carla', nome_parceiro: null, nome_empresa: 'Doces da Carla', estrutura: null });
+  db.tabela('whatsapp_vinculos').push({ phone: '5531911112222', workspace_id: 'ws-2', user_id: 'u-carla', profile: 'titular' });
+  await enviar([texto('c1', 'feira 40 no pix', '5531911112222')]);
+  assertEquals(db.tabela('entries').map(e => [e.workspace_id, e.profile, e.cat]), [['ws-2', 'titular', 'ALIMENTAÇÃO']]);
+  assertMatch(chamadasGemini[0].sistema, /Carla/);
+  assert(!/Ana|Bruno|Studio Teste|casa\|out/.test(chamadasGemini[0].sistema));
+  assertMatch(enviados.at(-1)!.texto, /Carla › Saídas/);
 });
