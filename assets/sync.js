@@ -45,17 +45,46 @@
     return k ? MENSAGENS[k] : 'Não foi possível concluir. Verifique a conexão e tente de novo.';
   };
 
-  let db = null, canal = null, canalAgentes = null, canalEspera = null, timer = 0;
+  let db = null, canal = null, canalAgentes = null, canalEspera = null, canalPanorama = null, timer = 0;
+
+  /* Panorama (contas fixas, cartões e faturas) depende do supabase/panorama.sql.
+     Sem ele, o resto do site segue normal e a tela do panorama mostra um aviso.
+     'carregando' | 'pronto' | 'sem-banco' */
+  A.panorama = 'carregando';
+  const faltaTabela = e => !!e && (e.code === '42P01' || e.code === '42703' || e.code === 'PGRST205' || e.code === 'PGRST202' || /does not exist|schema cache/i.test(e.message || ''));
 
   /* ---------- Conversão entre banco e tela ---------- */
-  const paraBanco = (p, kind, r) => ({
+  const paraBanco = (p, kind, r) => Object.assign({
     id: r.id, workspace_id: A.espaco.id, profile: p, kind, cat: r.cat, obs: r.obs || '', val: r.val,
     forma: r.forma, tipo: r.tipo || 'Único', card: r.card || '-', parc: r.parc, venc: r.venc, pag: r.pag || null
-  });
+  }, A.panorama === 'pronto' ? { imprevisto: !!r.imprevisto, atrasado: !!r.atrasado } : {});
   const daTela = l => ({
     id: l.id, cat: l.cat, obs: l.obs, val: Number(l.val), forma: l.forma, tipo: l.tipo,
-    card: l.card, parc: l.parc, venc: l.venc, pag: l.pag || '', origem: l.origem || 'site'
+    card: l.card, parc: l.parc, venc: l.venc, pag: l.pag || '', origem: l.origem || 'site',
+    imprevisto: !!l.imprevisto, atrasado: !!l.atrasado, fixa: l.conta_fixa_id || null
   });
+  const isoDia = v => (v ? String(v).slice(0, 10) : null);
+
+  /* Contas fixas, cartões e faturas do CFI. */
+  async function baixarPanorama(c) {
+    const ws = A.espaco.id;
+    const [fx, ct, ft] = await Promise.all([
+      db.from('contas_fixas').select('id,profile,descricao,cat,val,dia,inicio,meses,forma,card').eq('workspace_id', ws).order('created_at'),
+      db.from('cartoes').select('profile,card,bandeira,fechamento,vencimento').eq('workspace_id', ws),
+      db.from('faturas').select('profile,card,vencimento,situacao,pago_em,entry_ids').eq('workspace_id', ws)
+    ]);
+    const erro = fx.error || ct.error || ft.error;
+    if (erro) {
+      if (faltaTabela(erro)) { A.panorama = 'sem-banco'; return; }
+      throw erro;
+    }
+    A.panorama = 'pronto';
+    c.fixas = fx.data.map(x => Object.assign({}, x, { val: Number(x.val), inicio: isoDia(x.inicio) }));
+    ct.data.forEach(x => { c.cartoes[x.profile + '|' + x.card] = { bandeira: x.bandeira || '', fechamento: x.fechamento, vencimento: x.vencimento }; });
+    ft.data.forEach(x => {
+      c.faturas[`${x.profile}|${x.card}|${isoDia(x.vencimento)}`] = { situacao: x.situacao, pago_em: isoDia(x.pago_em), entry_ids: x.entry_ids || [] };
+    });
+  }
 
   /* O PostgREST devolve no máximo 1000 linhas por vez. */
   async function todasAsLinhas() {
@@ -79,7 +108,8 @@
     const rows = {};
     Object.keys(F.PROFILES).forEach(p => { rows[p] = { in: [], out: [] }; });
     linhas.forEach(l => { if (rows[l.profile]) rows[l.profile][l.kind].push(daTela(l)); });
-    const c = { metas: {}, limites: {}, empresa: {} };
+    const c = { metas: {}, limites: {}, empresa: {}, cartoes: {}, faturas: {}, fixas: [] };
+    if (A.panorama !== 'sem-banco') await baixarPanorama(c);
     alvos.data.forEach(({ scope, key, value }) => {
       const v = Number(value);
       if (!(v > 0)) return;
@@ -113,12 +143,35 @@
     excluir: id => enviar(db.from('entries').update({ deleted_at: new Date().toISOString() }).eq('id', id)),
     restaurar: id => enviar(db.from('entries').update({ deleted_at: null }).eq('id', id)),
     definirAlvo: (scope, key, value) => enviar(db.from('targets').upsert({ workspace_id: A.espaco.id, scope, key, value })),
-    apagarTudo: () => enviar(db.rpc('apagar_dados', { p_ws: A.espaco.id }))
+    apagarTudo: () => enviar(db.rpc('apagar_dados', { p_ws: A.espaco.id })),
+
+    /* Panorama */
+    atualizarLancamento: (id, campos) => enviar(db.from('entries')
+      .update(A.panorama === 'pronto' ? campos : { pag: campos.pag }).eq('id', id)),
+    salvarFatura: f => enviar(db.from('faturas').upsert(Object.assign({ workspace_id: A.espaco.id }, f))),
+    salvarCartao: c => enviar(db.from('cartoes').upsert(Object.assign({ workspace_id: A.espaco.id }, c))),
+    salvarContaFixa: async cf => {
+      const { error } = await db.rpc('salvar_conta_fixa', {
+        p_id: cf.id || null, p_ws: A.espaco.id, p_profile: cf.profile, p_descricao: cf.descricao, p_cat: cf.cat,
+        p_val: cf.val, p_dia: cf.dia, p_inicio: cf.inicio, p_meses: cf.meses == null ? null : cf.meses,
+        p_forma: cf.forma, p_card: cf.card || '-'
+      });
+      if (error) return faltaTabela(error) ? 'O panorama ainda não foi ativado no banco.' : 'Não foi possível salvar a conta fixa. Verifique a conexão e tente de novo.';
+      await atualizar();
+      return '';
+    },
+    excluirContaFixa: async id => {
+      const { error } = await db.rpc('excluir_conta_fixa', { p_id: id });
+      if (error) return 'Não foi possível excluir a conta fixa. Tente de novo.';
+      await atualizar();
+      return '';
+    }
   };
 
   /* ---------- Sessão ---------- */
   function desligarCanais() {
     if (canal) { db.removeChannel(canal); canal = null; }
+    if (canalPanorama) { db.removeChannel(canalPanorama); canalPanorama = null; }
     if (canalEspera) { db.removeChannel(canalEspera); canalEspera = null; }
   }
   function encerrar() {
@@ -129,6 +182,7 @@
     F.desconectarRemoto();
     A.usuario = null; A.espaco = null; A.membros = []; A.papel = null;
     A.pedido = null; A.pedidos = []; A.podeCriar = false;
+    A.panorama = 'carregando';
   }
 
   async function carregarEspaco() {
@@ -165,6 +219,8 @@
       ligarTempoReal();
       definir('pronto');
       carregarAgentes(true);
+      /* Contas fixas sem prazo: completa os meses até dezembro do ano que vem. */
+      if (A.panorama === 'pronto') db.rpc('gerar_contas_fixas', { p_ws: A.espaco.id }).then(r => { if (!r.error && r.data > 0) agendar(); });
     } catch (e) {
       definir('erro', 'Não foi possível carregar seus dados. Verifique a conexão e tente de novo.');
     }
@@ -225,6 +281,14 @@
       .on('postgres_changes', { event: '*', schema: 'public', table: 'pedidos_entrada', filter: filtro }, () => { atualizarPedidos(); })
       /* Ao reconectar, busca o que mudou enquanto o aparelho estava sem conexão. */
       .subscribe(status => { if (status === 'SUBSCRIBED') agendar(); });
+    /* Canal separado: se o panorama.sql não foi rodado, não atrapalha o resto. */
+    if (A.panorama === 'pronto') {
+      canalPanorama = db.channel('panorama-' + A.espaco.id)
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'contas_fixas', filter: filtro }, agendar)
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'cartoes', filter: filtro }, agendar)
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'faturas', filter: filtro }, agendar)
+        .subscribe();
+    }
   }
 
   function mudouSessao(sessao) {

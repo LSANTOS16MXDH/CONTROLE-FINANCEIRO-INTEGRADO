@@ -16,7 +16,7 @@
 
   const ui = {
     month: new Date().getMonth(), year: new Date().getFullYear(), mode: 'real', card: {}, catIn: {}, catOut: {},
-    drafts: {}, sort: {}, empresaAba: 'todas', lastProfile: 'titular', lastLanc: 'titular-lancamentos', relatorio: 'titular',
+    drafts: {}, sort: {}, empresaAba: 'todas', lastProfile: 'titular', lastLanc: 'titular-lancamentos', lastPan: 'panorama-titular', relatorio: 'titular',
     entrar: { email: '', nome: '' }
   };
 
@@ -39,6 +39,11 @@
       'parceiro-lancamentos': { lanc: 'parceiro', perfil: 'parceiro', title: 'Lançamentos de ' + nomeDe('parceiro') },
       casal: { dash: 'casal', perfil: 'casal', title: 'Dashboard do casal' },
       'casa-lancamentos': { lanc: 'casa', perfil: 'casal', title: 'Gastos da casa' }
+    });
+    /* Panorama de contas e contas fixas, uma de cada por área. */
+    perfisNav().forEach(([k, l]) => {
+      r['panorama-' + k] = { pan: k, perfil: k, title: 'Panorama de contas — ' + l };
+      r['contas-' + k] = { contas: k, perfil: k, title: 'Contas fixas e cartões — ' + l };
     });
     return r;
   }
@@ -281,7 +286,7 @@
   const COL_OUT = [['cat', 'Descrição'], ['obs', 'Observações'], ['val', 'Valores', 'num'], ['forma', 'Forma'], ['card', 'Cartão crédito'], ['parc', 'Nº parcela'], ['venc', 'Data venc.'], ['pag', 'Data pagto.'], ['status', 'Status'], ['mes', 'Mês'], ['ano', 'Ano']];
 
   /* Sem pagamento: "Atrasado" depois do vencimento, "Previsto" até ele. */
-  const atrasado = r => !r.pag && r.venc < F.hoje();
+  const atrasado = r => F.situacao(r) === 'atrasado'; // vencido sem pagamento, ou marcado à mão no Panorama
   const statusPill = (r, p, kind) => r.pag
     ? `<span class="pill ok">${IC.check}Concluído</span>`
     : `<button class="pill ${atrasado(r) ? 'late' : 'wait'}" data-confirm="${r.id}" data-p="${p}" data-kind="${kind}" title="Confirmar pagamento com a data de hoje">${atrasado(r) ? IC.warn + 'Atrasado' : IC.clock + 'Previsto'}</button>`;
@@ -714,6 +719,7 @@
     else $('#topcta').href = '#titular';
     $('#mainnav a[data-nav="lancamentos"]').href = '#' + ui.lastLanc;
     $('#mainnav a[data-nav="dashboards"]').href = '#' + ui.lastProfile;
+    $('#mainnav a[data-nav="panorama"]').href = '#' + ui.lastPan;
   }
 
   function route(scroll) {
@@ -758,16 +764,21 @@
 
     if (r.dash || r.emp) ui.lastProfile = h;
     if (r.lanc) ui.lastLanc = h;
-    setNav(r.lanc ? 'lancamentos' : r.dash || r.emp ? 'dashboards' : r.plano ? 'plano' : r.agentes ? 'agentes' : r.conta ? '' : 'relatorios');
+    if (r.pan || r.contas) ui.lastPan = h;
+    if (!r.pan && !r.contas) PAN.limpar();
+    setNav(r.lanc ? 'lancamentos' : r.dash || r.emp ? 'dashboards' : r.pan || r.contas ? 'panorama' : r.plano ? 'plano' : r.agentes ? 'agentes' : r.conta ? '' : 'relatorios');
 
     const pnav = $('.profilenav');
     pnav.hidden = !r.perfil;
     if (r.perfil) {
-      const isLanc = !!r.lanc;
+      const isLanc = !!r.lanc, isPan = !!(r.pan || r.contas);
       const lista = perfisNav();
-      $('#profile-seg').innerHTML = lista.map(([k, l, d, la]) => `<a href="#${isLanc ? la : d}" class="${r.perfil === k ? 'on' : ''}"${r.perfil === k ? ' aria-current="true"' : ''}>${esc(l)}</a>`).join('');
+      const destino = (k, d, la) => (isPan ? `${r.contas ? 'contas' : 'panorama'}-${k}` : isLanc ? la : d);
+      $('#profile-seg').innerHTML = lista.map(([k, l, d, la]) => `<a href="#${destino(k, d, la)}" class="${r.perfil === k ? 'on' : ''}"${r.perfil === k ? ' aria-current="true"' : ''}>${esc(l)}</a>`).join('');
       const per = lista.find(x => x[0] === r.perfil);
-      $('#view-seg').innerHTML = `<a href="#${per[2]}" class="${!isLanc ? 'on' : ''}">Dashboard</a><a href="#${per[3]}" class="${isLanc ? 'on' : ''}">Lançamentos</a>`;
+      $('#view-seg').innerHTML = isPan
+        ? `<a href="#panorama-${per[0]}" class="${r.pan ? 'on' : ''}">Calendário</a><a href="#contas-${per[0]}" class="${r.contas ? 'on' : ''}">Contas fixas e cartões</a>`
+        : `<a href="#${per[2]}" class="${!isLanc ? 'on' : ''}">Dashboard</a><a href="#${per[3]}" class="${isLanc ? 'on' : ''}">Lançamentos</a>`;
     }
 
     if (r.dash) renderDash(r.dash);
@@ -777,19 +788,28 @@
     else if (r.rel) renderRelatorios();
     else if (r.conta) renderConta();
     else if (r.agentes) AG.render();
+    else if (r.pan) PAN.render(r.pan, ui.year);
+    else if (r.contas) PAN.renderContas(r.contas);
     $('#view').insertAdjacentHTML('afterbegin', pedidosHTML());
 
-    if (scroll) window.scrollTo(0, 0);
+    if (scroll) { if (r.pan) PAN.rolar(ui.year); else window.scrollTo(0, 0); }
   }
 
   /* ---------- Agentes ---------- */
   const AG = window.AGENTES({ A, F, esc, pageHead, footer, toast: (m, a) => toast(m, a), route: () => route(), $ });
+
+  /* ---------- Panorama de contas ---------- */
+  const PAN = window.PANORAMA({
+    A, F, C, esc, brl, brl2, num2, dataBR, pageHead, footer, toast: (m, a) => toast(m, a), route: () => route(), $, $$,
+    yearSelect, parseValor, nomeDe, casal
+  });
 
   /* ---------- Eventos ---------- */
   const view = $('#view');
 
   view.addEventListener('change', e => {
     const t = e.target;
+    if (PAN.change(t)) return;
     if (t.name === 'tipo' && t.closest('#form-criar')) {
       $$('#form-criar .cfi-conjunto').forEach(x => { x.hidden = t.value !== 'conjunto'; });
       return;
@@ -891,6 +911,7 @@
   }
 
   view.addEventListener('submit', e => {
+    if (PAN.submit(e.target)) { e.preventDefault(); return; }
     if (e.target.id === 'form-criar') { e.preventDefault(); enviarCriar(e.target); return; }
     if (e.target.id === 'form-procurar') { e.preventDefault(); enviarProcurar(e.target); return; }
     if (e.target.id === 'form-parceiro') { e.preventDefault(); enviarParceiro(e.target); return; }
@@ -900,6 +921,7 @@
 
   view.addEventListener('input', e => AG.input(e.target));
   view.addEventListener('keydown', e => AG.keydown(e));
+  document.addEventListener('keydown', e => { if (PAN.keydown(e)) e.preventDefault(); });
 
   view.addEventListener('focusout', e => {
     if (e.target.name === 'val' && e.target.closest('form.lform')) {
@@ -909,6 +931,8 @@
   });
 
   view.addEventListener('click', e => {
+    const pan = e.target.closest('button, [data-pan-fechar]');
+    if (pan && PAN.click(pan)) { if (pan.tagName !== 'A') e.preventDefault(); return; }
     const b = e.target.closest('button');
     if (!b) return;
     if (b.dataset.login) { b.disabled = true; A.entrar(b.dataset.login); return; }
@@ -973,7 +997,7 @@
     if (A.estado === 'pronto') { const d = A.pegarDestino(); if (d && '#' + d !== location.hash) { location.hash = d; return; } }
     if (A.estado === 'anonimo' || A.estado === 'sem-espaco') { ui.drafts = {}; AG.limpar(); }
     if (A.estado === 'pronto') { ui.card = {}; ui.catIn = {}; ui.catOut = {}; window.dispatchEvent(new Event('cfi:landing')); }
-    route();
+    route(A.estado === 'pronto'); // ao entrar, o Panorama já abre no mês atual
   });
   /* Pedido novo ou respondido em outro aparelho: atualiza o aviso e a conta. */
   window.addEventListener('cfi:pedidos', () => { if (A.estado === 'pronto') redesenhar(); });

@@ -8,6 +8,7 @@ O site é estático e fica na Vercel. O login e os dados ficam no Supabase, que 
 2. Escolha a região **South America (São Paulo)** e guarde a senha do banco.
 3. Abra **SQL Editor > New query**, cole todo o conteúdo de [`supabase/schema.sql`](supabase/schema.sql) e clique em **Run**.
 4. Em uma nova consulta, rode do mesmo jeito o [`supabase/cfi-acesso.sql`](supabase/cfi-acesso.sql). Ele guarda os nomes de cada CFI e cria os pedidos de entrada do(a) parceiro(a). Pode rodar de novo sem problema.
+   Depois, rode também o [`supabase/panorama.sql`](supabase/panorama.sql), que ativa o Panorama de contas (contas fixas, cartões e faturas). Também pode rodar de novo.
 5. Cada compra libera um e-mail do Google para criar um CFI (use letras minúsculas):
 
    ```sql
@@ -66,6 +67,15 @@ A primeira tela tem duas opções, e as duas pedem o login com Google.
 Só o e-mail cadastrado consegue pedir para entrar. Para qualquer outro e-mail, o site responde que o CFI não existe, sem mostrar nomes. Enquanto o(a) parceiro(a) não entra, o titular pode corrigir o nome e o e-mail em **Conta**.
 
 **Privacidade:** cada CFI só enxerga os próprios nomes, valores e lançamentos; as regras do banco (RLS) barram o acesso de qualquer outra conta. Quem administra o projeto no Supabase (o dono da conta do Supabase) ainda consegue abrir as tabelas pelo painel, como em qualquer sistema na nuvem. Os agentes (WhatsApp e CFO) também precisam ler os lançamentos para funcionar.
+
+## 5.1 Panorama de contas
+
+Em **Panorama**, cada área (titular, parceiro(a), casal e empresa) tem um calendário de janeiro a dezembro. Cada conta aparece no dia do vencimento, e cada mês tem um relatório ao lado.
+
+- **Situação:** Atrasado (vermelho), Previsto (amarelo) e Concluído (verde). Ela vem das datas: com pagamento, Concluído; vencida sem pagamento, Atrasado; senão, Previsto. Clicando na conta, dá para mudar à mão.
+- **Cartões:** em **Contas fixas e cartões**, informe a bandeira e os dias de fechamento e de vencimento de cada cartão. A partir daí, as compras no crédito (parceladas inclusive) se juntam numa linha por fatura, no dia em que ela vence. Compra feita no dia do fechamento ou depois vai para a fatura seguinte. Marcar a fatura como Concluído confirma o pagamento de todas as compras dela. A fatura dos Dashboards usa a mesma regra.
+- **Contas fixas:** aluguel, internet, consórcio etc., com valor, dia do vencimento, mês de início e prazo (ou sem prazo). Cada uma vira um lançamento por mês, que também aparece em Lançamentos, Dashboards e para o CFO. Ao editar, os meses em aberto acompanham a mudança, e os já pagos não mudam. As contas sem prazo são geradas até dezembro do ano seguinte, e o site completa os meses sozinho.
+- **Imprevistos:** o **+** de cada dia, ou o botão **+ Conta imprevista**, lança uma conta que não estava planejada, já com a situação escolhida.
 
 ## 6. Login com Apple (opcional)
 
